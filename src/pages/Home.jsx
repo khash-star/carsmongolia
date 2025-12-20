@@ -1,0 +1,202 @@
+import React, { useState } from 'react';
+import { getCurrentUser } from '@/services/auth';
+import { list as listCars } from '@/services/cars';
+import { useQuery } from '@tanstack/react-query';
+import HeroSection from '@/components/cars/HeroSection.jsx';
+import SearchFilters from '@/components/cars/SearchFilters.jsx';
+import CarCard from '@/components/cars/CarCard.jsx';
+import CompareDrawer from '@/components/cars/CompareDrawer.jsx';
+import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Car, TrendingUp, Scale } from 'lucide-react';
+
+export default function Home() {
+  const [filters, setFilters] = useState({
+    search: '',
+    make: '',
+    minPrice: '',
+    maxPrice: '',
+    minYear: '',
+    maxYear: '',
+    bodyType: '',
+    fuelType: '',
+    hasLicensePlate: ''
+  });
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [sortBy, setSortBy] = useState('-created_date');
+  const [compareCars, setCompareCars] = useState([]);
+
+  const toggleCompare = (car) => {
+    setCompareCars(prev => {
+      const exists = prev.find(c => c.id === car.id);
+      if (exists) {
+        return prev.filter(c => c.id !== car.id);
+      }
+      if (prev.length >= 4) {
+        return prev;
+      }
+      return [...prev, car];
+    });
+  };
+
+  const { data: user } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: async () => {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          return JSON.parse(storedUser);
+        } catch {
+          return await getCurrentUser();
+        }
+      }
+      return await getCurrentUser();
+    },
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: cars = [], isLoading } = useQuery({
+    queryKey: ['cars', user?.role],
+    queryFn: async () => {
+      if (user?.role === 'ADMIN') {
+        // Admin хэрэглэгчид бүх машин харуулах
+        return await listCars();
+      } else {
+        // Энгийн хэрэглэгчид зөвхөн баталгаажсан машин харуулах
+        return await listCars({ status: 'approved' });
+      }
+    },
+    enabled: user !== undefined
+  });
+
+  // Filter cars
+  const filteredCars = cars.filter(car => {
+    if (filters.search) {
+      const search = filters.search.toLowerCase();
+      const matchesSearch = 
+        car.title?.toLowerCase().includes(search) ||
+        car.make?.toLowerCase().includes(search) ||
+        car.model?.toLowerCase().includes(search);
+      if (!matchesSearch) return false;
+    }
+    if (filters.make && filters.make !== 'all' && car.make !== filters.make) return false;
+          if (filters.bodyType && filters.bodyType !== 'all' && car.body_type !== filters.bodyType) return false;
+          if (filters.fuelType && filters.fuelType !== 'all' && car.fuel_type !== filters.fuelType) return false;
+          if (filters.hasLicensePlate && filters.hasLicensePlate !== 'all') {
+            const hasPlate = filters.hasLicensePlate === 'true';
+            if (car.has_license_plate !== hasPlate) return false;
+          }
+    if (filters.minPrice && car.price < Number(filters.minPrice)) return false;
+    if (filters.maxPrice && car.price > Number(filters.maxPrice)) return false;
+    if (filters.minYear && car.year < Number(filters.minYear)) return false;
+    if (filters.maxYear && car.year > Number(filters.maxYear)) return false;
+    return true;
+  });
+
+  // Sort cars
+  const sortedCars = [...filteredCars].sort((a, b) => {
+    // Featured cars always first
+    if (a.is_featured && !b.is_featured) return -1;
+    if (!a.is_featured && b.is_featured) return 1;
+
+    switch (sortBy) {
+      case '-created_date':
+        return new Date(b.created_date) - new Date(a.created_date);
+      case 'price_asc':
+        return a.price - b.price;
+      case 'price_desc':
+        return b.price - a.price;
+      case 'mileage_asc':
+        return (a.mileage || 0) - (b.mileage || 0);
+      case 'year_desc':
+        return b.year - a.year;
+      default:
+        return 0;
+    }
+  });
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <HeroSection />
+      
+      <div id="listings" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <SearchFilters
+          filters={filters}
+          setFilters={setFilters}
+          showAdvanced={showAdvanced}
+          setShowAdvanced={setShowAdvanced}
+        />
+
+        {/* Results Header */}
+        <div className="flex items-center justify-between mt-8 mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">
+              Зарууд
+            </h2>
+            <p className="text-gray-500">{sortedCars.length} машин олдлоо</p>
+          </div>
+          
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-48 rounded-xl">
+              <TrendingUp className="w-4 h-4 mr-2" />
+              <SelectValue placeholder="Эрэмбэлэх" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="-created_date">Шинэ нь эхэнд</SelectItem>
+              <SelectItem value="price_asc">Үнэ: Бага → Их</SelectItem>
+              <SelectItem value="price_desc">Үнэ: Их → Бага</SelectItem>
+              <SelectItem value="mileage_asc">Гүйлт: Бага → Их</SelectItem>
+              <SelectItem value="year_desc">Он: Шинэ → Хуучин</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Car Grid */}
+        {isLoading ? (
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="bg-white rounded-2xl overflow-hidden">
+                <Skeleton className="aspect-[16/10] w-full" />
+                <div className="p-4 space-y-3">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-6 w-1/2" />
+                  <Skeleton className="h-4 w-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : sortedCars.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {sortedCars.map((car, index) => (
+              <div key={car.id} className="relative">
+                <CarCard car={car} index={index} />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="absolute top-2 right-2 bg-white/90 backdrop-blur z-10"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleCompare(car);
+                  }}
+                >
+                  <Scale className={`w-4 h-4 ${compareCars.find(c => c.id === car.id) ? 'text-blue-600' : ''}`} />
+                </Button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-20">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Car className="w-10 h-10 text-gray-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Машин олдсонгүй</h3>
+            <p className="text-gray-500">Шүүлтүүрээ өөрчилж дахин хайна уу</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

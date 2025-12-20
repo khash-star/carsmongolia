@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return request.auth != null && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
+    }
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Cars collection
+    match /cars/{carId} {
+      // Public read access
+      allow read: if true;
+      // Write access for authenticated users
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated() && (resource.data.created_by == request.auth.token.email || isAdmin());
+    }
+    
+    // Businesses collection
+    match /businesses/{businessId} {
+      // Public read access
+      allow read: if true;
+      // Write access for authenticated users
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated() && (resource.data.created_by == request.auth.token.email || isAdmin());
+    }
+    
+    // Favorites collection
+    match /favorites/{favoriteId} {
+      // Users can only read/write their own favorites
+      allow read, write: if isAuthenticated() && 
+        (resource == null || resource.data.user_email == request.auth.token.email);
+      allow create: if isAuthenticated() && request.resource.data.user_email == request.auth.token.email;
+    }
+    
+    // Messages collection
+    match /messages/{messageId} {
+      // Users can read messages sent to them or sent by them
+      allow read: if isAuthenticated() && 
+        (resource.data.receiver_email == request.auth.token.email || 
+         resource.data.sender_email == request.auth.token.email);
+      // Users can create messages
+      allow create: if isAuthenticated() && request.resource.data.sender_email == request.auth.token.email;
+      // Users can update their own received messages (mark as read)
+      allow update: if isAuthenticated() && resource.data.receiver_email == request.auth.token.email;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // Users can read their own profile or admin can read all
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      // Users can create their own profile on registration
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      // Users can update their own profile, admin can update any
+      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+    }
+  }
+}
+

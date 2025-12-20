@@ -1,0 +1,1 @@
+export default function CarCard() { return null; }
