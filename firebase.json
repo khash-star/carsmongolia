@@ -12,6 +12,14 @@
     ],
     "rewrites": [
       {
+        "source": "/catalog/facebook.csv",
+        "function": "facebookCatalogFeed"
+      },
+      {
+        "source": "/catalog/facebook",
+        "function": "facebookCatalogFeed"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
