@@ -174,3 +174,136 @@ exports.facebookCatalogFeed = functions.https.onRequest(async (req, res) => {
   }
 });
 
+/**
+ * Хаан банкны USD зарах ханш татах
+ * Public endpoint: https://YOUR_REGION-YOUR_PROJECT.cloudfunctions.net/getKhanBankRate
+ */
+exports.getKhanBankRate = functions.https.onRequest(async (req, res) => {
+  try {
+    // Set CORS headers
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+    }
+
+    // Only allow GET requests
+    if (req.method !== 'GET') {
+      res.status(405).send('Method Not Allowed');
+      return;
+    }
+
+    // Хаан банкны вебсайтаас ханш татах
+    // Note: Энэ нь вебсайтын бүтэцээс хамаарна
+    const https = require('https');
+    const cheerio = require('cheerio');
+    
+    return new Promise((resolve) => {
+      https.get('https://www.khanbank.com/mn/home/rates', (response) => {
+        let data = '';
+        
+        response.on('data', (chunk) => {
+          data += chunk;
+        });
+        
+        response.on('end', () => {
+          try {
+            const $ = cheerio.load(data);
+            let usdSellRate = null;
+            
+            // HTML-ээс USD зарах ханшийг олох
+            // Хаан банкны вебсайтын бүтэцээс хамаарна
+            // Жишээ: table эсвэл div-ээс ханш олох
+            $('table, .rate-table, .exchange-rate, .currency-rate').each((i, elem) => {
+              const text = $(elem).text();
+              // USD зарах ханш олох
+              // Pattern: "USD" гэсэн текст олоод дараагийн тоог авах
+              const match = text.match(/USD[\s\S]{0,100}?(\d{3,5}\.?\d{0,2})/i);
+              if (match && match[1]) {
+                const rate = parseFloat(match[1]);
+                if (rate > 1000 && rate < 10000) { // Reasonable range
+                  usdSellRate = rate;
+                  return false; // Break loop
+                }
+              }
+            });
+            
+            // Хэрэв олдохгүй бол бүх текстийг шалгах
+            if (!usdSellRate) {
+              const fullText = $('body').text();
+              const matches = fullText.match(/USD.*?(\d{3,5}\.?\d{0,2})/gi);
+              if (matches) {
+                for (const match of matches) {
+                  const rate = parseFloat(match.match(/(\d{3,5}\.?\d{0,2})/)?.[1]);
+                  if (rate && rate > 1000 && rate < 10000) {
+                    usdSellRate = rate;
+                    break;
+                  }
+                }
+              }
+            }
+            
+            if (usdSellRate) {
+              res.status(200).json({ 
+                rate: usdSellRate,
+                currency: 'USD',
+                bank: 'Khan Bank',
+                timestamp: new Date().toISOString()
+              });
+              resolve();
+            } else {
+              // Fallback: default ханш
+              res.status(200).json({ 
+                rate: 3580,
+                currency: 'USD',
+                bank: 'Khan Bank',
+                timestamp: new Date().toISOString(),
+                note: 'Default rate used - could not parse from website'
+              });
+              resolve();
+            }
+          } catch (error) {
+            console.error('Error parsing HTML:', error);
+            // Fallback: default ханш
+            res.status(200).json({ 
+              rate: 3580,
+              currency: 'USD',
+              bank: 'Khan Bank',
+              timestamp: new Date().toISOString(),
+              note: 'Default rate used due to parsing error'
+            });
+            resolve();
+          }
+        });
+      }).on('error', (error) => {
+        console.error('Error fetching rate:', error);
+        // Fallback: default ханш
+        res.status(200).json({ 
+          rate: 3580,
+          currency: 'USD',
+          bank: 'Khan Bank',
+          timestamp: new Date().toISOString(),
+          note: 'Default rate used due to fetch error'
+        });
+        resolve();
+      });
+    });
+
+  } catch (error) {
+    console.error('Error in getKhanBankRate:', error);
+    // Fallback: default ханш
+    res.set('Access-Control-Allow-Origin', '*');
+    res.status(200).json({ 
+      rate: 3580,
+      currency: 'USD',
+      bank: 'Khan Bank',
+      timestamp: new Date().toISOString(),
+      note: 'Default rate used due to error'
+    });
+  }
+});
+

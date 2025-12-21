@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getById as getBusinessById, update as updateBusiness } from '@/services/businesses';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -9,15 +9,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Phone, MessageCircle, MapPin, Eye, Share2, Wrench, CircleDot, Settings, Headphones, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Phone, MessageCircle, MapPin, Eye, Share2, Wrench, CircleDot, Settings, Headphones, ChevronLeft, ChevronRight, Car } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 
 const SERVICE_TYPES = {
-  parts: { label: 'Сэлбэг', icon: Wrench, color: 'bg-orange-500' },
-  tires: { label: 'Дугуй', icon: CircleDot, color: 'bg-green-500' },
-  repair: { label: 'Засвар', icon: Settings, color: 'bg-red-500' },
-  service: { label: 'Үйлчилгээ', icon: Headphones, color: 'bg-purple-500' }
+  parts: { label: 'Авто сэлбэг', icon: Wrench, color: 'bg-orange-500' },
+  rental: { label: 'Машин түрээс', icon: Car, color: 'bg-yellow-500' },
+  tires: { label: 'Дугуй худалдаа', icon: CircleDot, color: 'bg-green-500' },
+  repair: { label: 'Авто засвар', icon: Settings, color: 'bg-red-500' },
+  service: { label: 'Бусад', icon: Headphones, color: 'bg-purple-500' }
 };
 
 export default function BusinessDetails() {
@@ -26,19 +27,39 @@ export default function BusinessDetails() {
   
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  const { data: business, isLoading } = useQuery({
+  // Debug: Log business ID
+  useEffect(() => {
+    if (businessId) {
+      console.log('Business ID from URL:', businessId);
+    } else {
+      console.error('No business ID found in URL');
+    }
+  }, [businessId]);
+
+  const { data: business, isLoading, error } = useQuery({
     queryKey: ['business', businessId],
     queryFn: async () => {
-      const businessData = await getBusinessById(businessId);
-      if (businessData) {
-        // Update view count
-        const businessRef = doc(db, 'businesses', businessId);
-        await updateDoc(businessRef, { view_count: increment(1) });
-        return { ...businessData, view_count: (businessData.view_count || 0) + 1 };
+      if (!businessId) {
+        console.error('Business ID is missing');
+        return null;
       }
-      return null;
+      try {
+        const businessData = await getBusinessById(businessId);
+        if (businessData) {
+          // Update view count
+          const businessRef = doc(db, 'businesses', businessId);
+          await updateDoc(businessRef, { view_count: increment(1) });
+          return { ...businessData, view_count: (businessData.view_count || 0) + 1 };
+        }
+        console.error('Business not found:', businessId);
+        return null;
+      } catch (err) {
+        console.error('Error fetching business:', err);
+        return null;
+      }
     },
-    enabled: !!businessId
+    enabled: !!businessId,
+    retry: false
   });
 
   if (isLoading) {
@@ -148,6 +169,46 @@ export default function BusinessDetails() {
                 <CardContent className="p-4 flex items-center gap-3">
                   <MapPin className="w-5 h-5 text-gray-400" />
                   <span>{business.address}</span>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Машин түрээсийн мэдээлэл */}
+            {business.type === 'rental' && (
+              <Card className="border-0 shadow-sm bg-yellow-50 border-yellow-200">
+                <CardContent className="p-4 space-y-3">
+                  <h3 className="font-semibold">Түрээсийн мэдээлэл</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    {business.has_driver && (
+                      <div>
+                        <span className="text-sm text-gray-600">Жолооч:</span>
+                        <p className="font-medium">
+                          {business.has_driver === 'with_driver' ? 'Жолоочтой' :
+                           business.has_driver === 'without_driver' ? 'Жолоочгүй' :
+                           business.has_driver === 'both' ? 'Хоёулаа' : business.has_driver}
+                        </p>
+                      </div>
+                    )}
+                    {business.rental_period && (
+                      <div>
+                        <span className="text-sm text-gray-600">Түрээсийн хугацаа:</span>
+                        <p className="font-medium">
+                          {business.rental_period === 'hour' ? 'Цаг' :
+                           business.rental_period === 'day' ? 'Өдөр' :
+                           business.rental_period === 'week' ? 'Долоо хоног' :
+                           business.rental_period === 'month' ? 'Сар' : business.rental_period}
+                        </p>
+                      </div>
+                    )}
+                    {business.rental_price && (
+                      <div className="col-span-2">
+                        <span className="text-sm text-gray-600">Түрээсийн үнэ:</span>
+                        <p className="font-medium text-lg text-blue-600">
+                          {new Intl.NumberFormat('mn-MN').format(business.rental_price)}₮
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             )}

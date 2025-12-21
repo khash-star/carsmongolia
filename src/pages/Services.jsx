@@ -9,16 +9,16 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Wrench, CircleDot, Settings, Headphones, Search, Plus, Phone, MapPin, Eye, Package } from 'lucide-react';
+import { Wrench, CircleDot, Settings, Headphones, Search, Plus, Phone, MapPin, Eye, Car, ShoppingCart, MessageCircle, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
 const SERVICE_TYPES = {
-  parts: { label: 'Сэлбэг', icon: Wrench, color: 'bg-orange-500', categories: ['Хөдөлгүүр', 'Явах эд анги', 'Тоормос', 'Цахилгаан', 'Дотор эд анги', 'Гадна эд анги', 'Бусад'] },
-  orders: { label: 'Сэлбэг захиалга', icon: Package, color: 'bg-yellow-500', categories: ['Солонгос', 'Япон', 'Герман', 'Хятад', 'Америк', 'Бусад'] },
-  tires: { label: 'Дугуй', icon: CircleDot, color: 'bg-green-500', categories: ['Зуны дугуй', 'Өвлийн дугуй', '4 улирлын дугуй', 'Обуд', 'Дугуйн засвар', 'Бусад'] },
-  repair: { label: 'Засвар', icon: Settings, color: 'bg-red-500', categories: ['Хөдөлгүүрийн засвар', 'Хурдны хайрцаг', 'Тоормосны засвар', 'Цахилгааны засвар', 'Бүхээгийн засвар', 'Будаг', 'Бусад'] },
-  service: { label: 'Үйлчилгээ', icon: Headphones, color: 'bg-purple-500', categories: ['Угаалга', 'Тос солих', 'Оношилгоо', 'Гүйцэтгэл тохируулах', 'Даатгал', 'Зээл', 'Бусад'] }
+  parts: { label: 'Авто сэлбэг', icon: Wrench, color: 'bg-orange-500', categories: ['Хөдөлгүүр', 'Явах эд анги', 'Тоормос', 'Цахилгаан', 'Дотор эд анги', 'Гадна эд анги', 'Бусад'] },
+  rental: { label: 'Машин түрээс', icon: Car, color: 'bg-yellow-500', categories: ['Жолоочтой', 'Жолоочгүй', 'Өдөр', 'Цаг', 'Долоо хоног', 'Сар', 'Бусад'] },
+  tires: { label: 'Дугуй худалдаа', icon: CircleDot, color: 'bg-green-500', categories: ['Зуны дугуй', 'Өвлийн дугуй', '4 улирлын дугуй', 'Обуд', 'Дугуйн засвар', 'Бусад'] },
+  repair: { label: 'Авто засвар', icon: Settings, color: 'bg-red-500', categories: ['Хөдөлгүүрийн засвар', 'Хурдны хайрцаг', 'Тоормосны засвар', 'Цахилгааны засвар', 'Бүхээгийн засвар', 'Будаг', 'Бусад'] },
+  service: { label: 'Бусад', icon: Headphones, color: 'bg-purple-500', categories: ['Угаалга', 'Тос солих', 'Оношилгоо', 'Гүйцэтгэл тохируулах', 'Даатгал', 'Зээл', 'Бусад'] }
 };
 
 export default function Services() {
@@ -76,13 +76,47 @@ export default function Services() {
                 <p className="text-white/80">{filteredBusinesses.length} олдлоо</p>
               </div>
               </div>
-              <div className="flex gap-2">
-              <Link to={createPageUrl('AddBusiness')}>
-                <Button className="bg-white text-gray-900 hover:bg-gray-100">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Бизнес нэмэх
-                </Button>
-              </Link>
+              <div className="flex gap-3 items-end">
+                <div className="flex flex-col gap-1 items-end">
+                  <h3 className="text-white font-bold text-lg tracking-wide">СЭЛБЭГ ЗАХИАЛГА</h3>
+                  <a href="https://shuurkhai.com" target="_blank" rel="noopener noreferrer" className="no-underline">
+                    <Button 
+                      className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-600 hover:from-blue-700 hover:via-blue-800 hover:to-indigo-700 text-white font-bold px-6 py-4 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-[1.02] border-0 h-auto hover:brightness-110"
+                      style={{ borderRadius: '12px', minWidth: '180px' }}
+                    >
+                      <div className="flex flex-col items-start gap-1.5 w-full">
+                        <div className="flex items-center gap-2">
+                          <ShoppingCart className="w-4 h-4 flex-shrink-0" />
+                          <span className="text-sm font-bold tracking-wide">товшино уу</span>
+                          <div className="relative w-7 h-7 flex-shrink-0 opacity-80">
+                            <div className="absolute inset-0 bg-gradient-to-br from-red-500 via-red-600 to-red-700 rounded-full shadow-lg border-2 border-gray-300 flex items-center justify-center">
+                              <Play className="w-3.5 h-3.5 text-white fill-white ml-0.5" />
+                            </div>
+                            <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent rounded-full pointer-events-none" style={{ clipPath: 'inset(0 0 50% 0)' }} />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs opacity-95 font-medium">
+                          <Phone className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span>72026471</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs opacity-95 font-medium">
+                          <MessageCircle className="w-3.5 h-3.5 text-purple-100 flex-shrink-0" />
+                          <span className="text-purple-100">Viber: 99086471</span>
+                        </div>
+                      </div>
+                    </Button>
+                  </a>
+                </div>
+                <Link to={createPageUrl('AddBusiness')} className="no-underline">
+                  <Button className="bg-white text-gray-900 hover:bg-gray-100 font-bold px-8 py-5 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] border border-gray-200 h-auto"
+                    style={{ borderRadius: '12px', minWidth: '220px' }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Plus className="w-5 h-5" />
+                      <span className="text-base font-bold">Бизнес нэмэх</span>
+                    </div>
+                  </Button>
+                </Link>
               </div>
               </div>
         </div>

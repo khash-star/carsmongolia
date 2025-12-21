@@ -4,7 +4,7 @@ import { createPageUrl } from '@/utils';
 import { list as listCars } from '@/services/cars';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
-import { Search, ChevronDown, Wrench, CircleDot, Settings, Headphones, Package } from 'lucide-react';
+import { Search, ChevronDown, Wrench, CircleDot, Settings, Headphones, Car } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function HeroSection() {
@@ -66,18 +66,18 @@ export default function HeroSection() {
                     className="h-11 px-4 bg-gradient-to-br from-orange-500 to-orange-600 shadow-md border-0 text-white hover:from-orange-600 hover:to-orange-700 hover:shadow-lg font-semibold rounded-xl text-xs transition-all"
                   >
                     <Wrench className="w-3.5 h-3.5 mr-1.5" />
-                    Сэлбэг
+                    Авто сэлбэг
                   </Button>
                 </motion.div>
               </Link>
-              <Link to={createPageUrl('Services?type=orders')}>
+              <Link to={createPageUrl('Services?type=rental')}>
                 <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
                   <Button 
                     size="sm" 
                     className="h-11 px-4 bg-gradient-to-br from-yellow-500 to-yellow-600 shadow-md border-0 text-white hover:from-yellow-600 hover:to-yellow-700 hover:shadow-lg font-semibold rounded-xl text-xs transition-all"
                   >
-                    <Package className="w-3.5 h-3.5 mr-1.5" />
-                    Сэлбэг захиалга
+                    <Car className="w-3.5 h-3.5 mr-1.5" />
+                    Машин түрээс
                   </Button>
                 </motion.div>
               </Link>
@@ -88,7 +88,7 @@ export default function HeroSection() {
                     className="h-11 px-4 bg-gradient-to-br from-green-500 to-green-600 shadow-md border-0 text-white hover:from-green-600 hover:to-green-700 hover:shadow-lg font-semibold rounded-xl text-xs transition-all"
                   >
                     <CircleDot className="w-3.5 h-3.5 mr-1.5" />
-                    Дугуй
+                    Дугуй худалдаа
                   </Button>
                 </motion.div>
               </Link>
@@ -99,7 +99,7 @@ export default function HeroSection() {
                     className="h-11 px-4 bg-gradient-to-br from-red-500 to-red-600 shadow-md border-0 text-white hover:from-red-600 hover:to-red-700 hover:shadow-lg font-semibold rounded-xl text-xs transition-all"
                   >
                     <Settings className="w-3.5 h-3.5 mr-1.5" />
-                    Засвар
+                    Авто засвар
                   </Button>
                 </motion.div>
               </Link>
@@ -110,7 +110,7 @@ export default function HeroSection() {
                     className="h-11 px-4 bg-gradient-to-br from-purple-500 to-purple-600 shadow-md border-0 text-white hover:from-purple-600 hover:to-purple-700 hover:shadow-lg font-semibold rounded-xl text-xs transition-all"
                   >
                     <Headphones className="w-3.5 h-3.5 mr-1.5" />
-                    Үйлчилгээ
+                    Бусад
                   </Button>
                 </motion.div>
               </Link>

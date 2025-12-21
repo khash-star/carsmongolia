@@ -1,5 +1,6 @@
 import Layout from "./Layout.jsx";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { useEffect } from "react";
 
 import Home from "./Home";
 import CarDetails from "./CarDetails";
@@ -64,6 +65,11 @@ function _getCurrentPage(url) {
 function PagesContent() {
     const location = useLocation();
     const currentPage = _getCurrentPage(location.pathname);
+    
+    // Хуудас өөрчлөгдөхөд дээд хэсэгт scroll хийх
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'instant' });
+    }, [location.pathname, location.search]);
     
     return (
         <Layout currentPageName={currentPage}>

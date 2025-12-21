@@ -3,7 +3,7 @@ import { getCurrentUser } from '@/services/auth';
 import { getById as getCarById, update as updateCar } from '@/services/cars';
 import { list as listFavorites, create as createFavorite, remove as removeFavorite } from '@/services/favorites';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { doc, updateDoc, increment } from 'firebase/firestore';
+import { doc, updateDoc, increment, collection, query, where, getDocs, limit as firestoreLimit } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import LoanCalculator from '@/components/cars/LoanCalculator.jsx';
+import ExciseTaxCalculator from '@/components/cars/ExciseTaxCalculator.jsx';
+import CarCard from '@/components/cars/CarCard.jsx';
 import {
   ArrowLeft,
   Share2,
@@ -71,6 +72,61 @@ export default function CarDetails() {
 
   const isFavorite = favorites.some(fav => fav.car_id === carId);
 
+  // Ижил загварын заруудыг авах
+  const { data: similarCars = [], isLoading: isLoadingSimilar } = useQuery({
+    queryKey: ['similarCars', car?.make, car?.model, carId],
+    queryFn: async () => {
+      if (!car?.make || !car?.model) return [];
+      
+      try {
+        // Эхлээд make болон status-оор шүүх (composite index шаардлагатай байж магадгүй)
+        const q = query(
+          collection(db, 'cars'),
+          where('make', '==', car.make),
+          where('status', '==', 'approved'),
+          firestoreLimit(20)
+        );
+        const snapshot = await getDocs(q);
+        let results = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        // Одоогийн машиныг хасна
+        results = results.filter(c => c.id !== carId);
+        
+        // Ижил model-тэй машинуудыг эхлээд харуулах
+        const sameModel = results.filter(c => c.model === car.model);
+        const sameMake = results.filter(c => c.model !== car.model);
+        
+        // Ижил model-тэй машинуудыг эхлээд, дараа нь ижил make-тэй машинуудыг харуулах
+        return [...sameModel, ...sameMake].slice(0, 4);
+      } catch (error) {
+        console.error('Error fetching similar cars:', error);
+        // Хэрэв query алдаа гарвал, бүх машинуудыг аваад filter хийх
+        try {
+          const allCarsQuery = query(
+            collection(db, 'cars'),
+            where('status', '==', 'approved'),
+            firestoreLimit(50)
+          );
+          const allSnapshot = await getDocs(allCarsQuery);
+          let allResults = allSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          
+          // Одоогийн машиныг хасна
+          allResults = allResults.filter(c => c.id !== carId);
+          
+          // Ижил make болон model-тэй машинуудыг эхлээд харуулах
+          const sameModel = allResults.filter(c => c.make === car.make && c.model === car.model);
+          const sameMake = allResults.filter(c => c.make === car.make && c.model !== car.model);
+          
+          return [...sameModel, ...sameMake].slice(0, 4);
+        } catch (fallbackError) {
+          console.error('Fallback query also failed:', fallbackError);
+          return [];
+        }
+      }
+    },
+    enabled: !!car?.make && !!car?.model && !!carId
+  });
+
   const toggleFavoriteMutation = useMutation({
     mutationFn: async () => {
       if (isFavorite) {
@@ -85,6 +141,11 @@ export default function CarDetails() {
       toast.success(isFavorite ? 'Дуртайгаас хасагдлаа' : 'Дуртайд нэмэгдлээ');
     }
   });
+
+  // Хуудас руу ороход дээд хэсэгт scroll хийх
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [carId]);
 
   useEffect(() => {
     if (car && !viewCountUpdated) {
@@ -394,9 +455,29 @@ export default function CarDetails() {
               </CardContent>
             </Card>
 
-            <LoanCalculator carPrice={car.price} />
+            {!car.has_license_plate && <ExciseTaxCalculator car={car} />}
           </div>
         </div>
+
+        {/* Ижил загварын зарууд */}
+        {similarCars.length > 0 && (
+          <div className="mt-12">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Ижил загварын зарууд</h2>
+            {isLoadingSimilar ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                {[1, 2, 3, 4].map((i) => (
+                  <Skeleton key={i} className="aspect-[16/10] rounded-lg" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                {similarCars.map((similarCar, index) => (
+                  <CarCard key={similarCar.id} car={similarCar} index={index} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

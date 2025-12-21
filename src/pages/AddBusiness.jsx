@@ -13,15 +13,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Wrench, CircleDot, Settings, Headphones, Loader2, CheckCircle, Upload, X, Info } from 'lucide-react';
+import { Wrench, CircleDot, Settings, Headphones, Loader2, CheckCircle, Upload, X, Info, Car } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
 const SERVICE_TYPES = {
-  parts: { label: 'Сэлбэг', icon: Wrench, color: 'bg-orange-500', categories: ['Хөдөлгүүр', 'Явах эд анги', 'Тоормос', 'Цахилгаан', 'Дотор эд анги', 'Гадна эд анги', 'Бусад'] },
-  tires: { label: 'Дугуй', icon: CircleDot, color: 'bg-green-500', categories: ['Зуны дугуй', 'Өвлийн дугуй', '4 улирлын дугуй', 'Обуд', 'Дугуйн засвар', 'Бусад'] },
-  repair: { label: 'Засвар', icon: Settings, color: 'bg-red-500', categories: ['Хөдөлгүүрийн засвар', 'Хурдны хайрцаг', 'Тоормосны засвар', 'Цахилгааны засвар', 'Бүхээгийн засвар', 'Будаг', 'Бусад'] },
-  service: { label: 'Үйлчилгээ', icon: Headphones, color: 'bg-purple-500', categories: ['Угаалга', 'Тос солих', 'Оношилгоо', 'Гүйцэтгэл тохируулах', 'Даатгал', 'Зээл', 'Бусад'] }
+  parts: { label: 'Авто сэлбэг', icon: Wrench, color: 'bg-orange-500', categories: ['Хөдөлгүүр', 'Явах эд анги', 'Тоормос', 'Цахилгаан', 'Дотор эд анги', 'Гадна эд анги', 'Бусад'] },
+  rental: { label: 'Машин түрээс', icon: Car, color: 'bg-yellow-500', categories: ['Жолоочтой', 'Жолоочгүй', 'Өдөр', 'Цаг', 'Долоо хоног', 'Сар', 'Бусад'] },
+  tires: { label: 'Дугуй худалдаа', icon: CircleDot, color: 'bg-green-500', categories: ['Зуны дугуй', 'Өвлийн дугуй', '4 улирлын дугуй', 'Обуд', 'Дугуйн засвар', 'Бусад'] },
+  repair: { label: 'Авто засвар', icon: Settings, color: 'bg-red-500', categories: ['Хөдөлгүүрийн засвар', 'Хурдны хайрцаг', 'Тоормосны засвар', 'Цахилгааны засвар', 'Бүхээгийн засвар', 'Будаг', 'Бусад'] },
+  service: { label: 'Бусад', icon: Headphones, color: 'bg-purple-500', categories: ['Угаалга', 'Тос солих', 'Оношилгоо', 'Гүйцэтгэл тохируулах', 'Даатгал', 'Зээл', 'Бусад'] }
 };
 
 export default function AddBusiness() {
@@ -56,7 +57,11 @@ export default function AddBusiness() {
     phone: '',
     whatsapp: '',
     address: '',
-    images: []
+    images: [],
+    // Машин түрээсийн талбарууд
+    has_driver: '',
+    rental_period: '',
+    rental_price: ''
   });
 
 
@@ -247,7 +252,13 @@ export default function AddBusiness() {
         status: 'pending',
         created_at: new Date().toISOString(),
         created_by: user.email,
-        view_count: 0
+        view_count: 0,
+        // Машин түрээсийн талбарууд
+        ...(formData.type === 'rental' && {
+          has_driver: formData.has_driver || null,
+          rental_period: formData.rental_period || null,
+          rental_price: formData.rental_price ? Number(formData.rental_price) : null
+        })
       };
 
       console.log('Creating business with data:', businessData);
@@ -269,7 +280,10 @@ export default function AddBusiness() {
           phone: '',
           whatsapp: '',
           address: '',
-          images: []
+          images: [],
+          has_driver: '',
+          rental_period: '',
+          rental_price: ''
         });
       }, 2000);
     } catch (error) {
@@ -343,7 +357,7 @@ export default function AddBusiness() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Type Selection */}
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-5 gap-2">
                 {Object.entries(SERVICE_TYPES).map(([key, { label, icon: Icon, color }]) => (
                   <button
                     key={key}
@@ -394,6 +408,60 @@ export default function AddBusiness() {
                     placeholder="Бизнесийн талаар товч тайлбар..."
                   />
                 </div>
+
+                {/* Машин түрээсийн талбарууд */}
+                {formData.type === 'rental' && (
+                  <div className="space-y-4 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <h3 className="font-semibold text-gray-900">Машин түрээсийн мэдээлэл</h3>
+                    
+                    <div>
+                      <Label>Жолоочтой/Жолоочгүй *</Label>
+                      <Select 
+                        value={formData.has_driver} 
+                        onValueChange={(v) => setFormData({ ...formData, has_driver: v })}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Сонгох" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="with_driver">Жолоочтой</SelectItem>
+                          <SelectItem value="without_driver">Жолоочгүй</SelectItem>
+                          <SelectItem value="both">Хоёулаа</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label>Түрээсийн хугацаа *</Label>
+                      <Select 
+                        value={formData.rental_period} 
+                        onValueChange={(v) => setFormData({ ...formData, rental_period: v })}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Сонгох" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="hour">Цаг</SelectItem>
+                          <SelectItem value="day">Өдөр</SelectItem>
+                          <SelectItem value="week">Долоо хоног</SelectItem>
+                          <SelectItem value="month">Сар</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label>Түрээсийн үнэ (₮)</Label>
+                      <Input
+                        type="number"
+                        value={formData.rental_price}
+                        onChange={(e) => setFormData({ ...formData, rental_price: e.target.value })}
+                        className="mt-1"
+                        placeholder="Жишээ: 50000"
+                        min="0"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -468,7 +536,7 @@ export default function AddBusiness() {
                                   </tr>
                                   <tr className="border-b">
                                     <td className="p-2 font-medium">Төрөл</td>
-                                    <td className="p-2 text-gray-600">Сэлбэг, Дугуй, Засвар, Үйлчилгээ</td>
+                                    <td className="p-2 text-gray-600">Авто сэлбэг, Машин түрээс, Дугуй худалдаа, Авто засвар, Бусад</td>
                                     <td className="p-2 text-gray-400">-</td>
                                   </tr>
                                   <tr className="border-b">

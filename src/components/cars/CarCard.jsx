@@ -39,38 +39,42 @@ export default function CarCard({ car, index = 0 }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05, duration: 0.3 }}
+      className="w-full"
     >
-      <Link to={createPageUrl(`CarDetails?id=${car.id}`)}>
-        <Card className="group border-0 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden bg-white">
+      <Link 
+        to={createPageUrl(`CarDetails?id=${car.id}`)}
+        className="block w-full"
+      >
+        <Card className="group border-0 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden bg-white cursor-pointer w-full">
           <div className="relative aspect-[16/10] overflow-hidden">
             <img
               src={car.images?.[0] || defaultImage}
               alt={car.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 pointer-events-none"
               loading="lazy"
               decoding="async"
             />
             
             {car.is_featured && (
-              <Badge className="absolute top-3 left-3 bg-amber-500 text-white">
+              <Badge className="absolute top-3 left-3 bg-amber-500 text-white pointer-events-none">
                 <Star className="w-3 h-3 mr-1 fill-current" />
                 VIP
               </Badge>
             )}
             
             {car.status === 'sold' && (
-              <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center pointer-events-none">
                 <Badge className="bg-red-500 text-white text-lg px-4 py-1">ЗАРАГДСАН</Badge>
               </div>
             )}
 
             {car.status === 'pending' && (
-              <Badge className="absolute top-3 right-3 bg-yellow-500 text-white">
+              <Badge className="absolute top-3 right-3 bg-yellow-500 text-white pointer-events-none">
                 Хүлээгдэж буй
               </Badge>
             )}
 
-            <div className="absolute bottom-3 right-3 flex items-center gap-1 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
+            <div className="absolute bottom-3 right-3 flex items-center gap-1 bg-black/50 text-white text-xs px-2 py-1 rounded-full pointer-events-none">
               <Eye className="w-3 h-3" />
               {car.view_count || 0}
             </div>
