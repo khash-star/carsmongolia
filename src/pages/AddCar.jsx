@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Car, Upload, X, Loader2, CheckCircle, Star } from 'lucide-react';
 import { toast } from 'sonner';
@@ -68,7 +68,7 @@ export default function AddCar() {
     year: new Date().getFullYear(),
     price: '',
     mileage: '',
-    has_license_plate: false,
+    has_license_plate: '', // '' = сонгоогүй, 'true' = авсан, 'false' = аваагүй
     fuel_type: 'gasoline',
     transmission: 'automatic',
     body_type: 'sedan',
@@ -97,7 +97,7 @@ export default function AddCar() {
         year: existingCar.year || new Date().getFullYear(),
         price: existingCar.price || '',
         mileage: existingCar.mileage || '',
-        has_license_plate: existingCar.has_license_plate || false,
+        has_license_plate: existingCar.has_license_plate === true ? 'true' : existingCar.has_license_plate === false ? 'false' : '',
         fuel_type: existingCar.fuel_type || 'gasoline',
         transmission: existingCar.transmission || 'automatic',
         body_type: existingCar.body_type || 'sedan',
@@ -165,6 +165,10 @@ export default function AddCar() {
     if (!formData.title.trim()) {
       newErrors.title = true;
       errorMessages.push('Зарын гарчиг');
+    }
+    if (!formData.has_license_plate) {
+      newErrors.has_license_plate = true;
+      errorMessages.push('Дугаар авсан эсэх');
     }
     if (!formData.make) {
       newErrors.make = true;
@@ -249,6 +253,7 @@ export default function AddCar() {
         price: Number(formData.price),
         mileage: formData.mileage ? Number(formData.mileage) : 0,
         engine_capacity: formData.engine_capacity ? Number(formData.engine_capacity) : 0,
+        has_license_plate: formData.has_license_plate === 'true', // 'true' string-ийг boolean руу хөрвүүлэх
       };
 
       if (isEditMode && editCarId) {
@@ -452,12 +457,22 @@ export default function AddCar() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    checked={formData.has_license_plate}
-                    onCheckedChange={(checked) => setFormData({ ...formData, has_license_plate: checked })}
-                  />
-                  <Label>Дугаар авсан эсэх</Label>
+                <div>
+                  <Label className={errors.has_license_plate ? 'text-red-500' : ''}>Дугаар авсан эсэх *</Label>
+                  <RadioGroup
+                    value={formData.has_license_plate}
+                    onValueChange={(value) => setFormData({ ...formData, has_license_plate: value })}
+                    className="mt-2"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="true" id="license-yes" />
+                      <Label htmlFor="license-yes" className="cursor-pointer">Дугаар авсан</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="false" id="license-no" />
+                      <Label htmlFor="license-no" className="cursor-pointer">Дугаар аваагүй</Label>
+                    </div>
+                  </RadioGroup>
                 </div>
               </div>
 
