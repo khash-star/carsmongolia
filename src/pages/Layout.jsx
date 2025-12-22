@@ -79,7 +79,7 @@ export default function Layout({ children, currentPageName }) {
                     Facebook
                   </Link>
                   <Link to={createPageUrl('Profile')} className={`text-sm font-medium ${currentPageName === 'Profile' ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'}`}>
-                    Профайл
+                    Миний зар
                   </Link>
                   {user.role === 'ADMIN' && (
                     <Link to={createPageUrl('Admin')} className={`text-sm font-medium ${currentPageName === 'Admin' ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'}`}>
@@ -142,7 +142,7 @@ export default function Layout({ children, currentPageName }) {
                     Facebook
                   </Link>
                   <Link to={createPageUrl('Profile')} className="block py-2 text-gray-600" onClick={() => setIsMenuOpen(false)}>
-                    Профайл
+                    Миний Зар
                   </Link>
                   {user.role === 'ADMIN' && (
                     <Link to={createPageUrl('Admin')} className="block py-2 text-gray-600" onClick={() => setIsMenuOpen(false)}>
