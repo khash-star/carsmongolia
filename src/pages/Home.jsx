@@ -61,11 +61,11 @@ export default function Home() {
     queryKey: ['cars', user?.role],
     queryFn: async () => {
       if (user?.role === 'ADMIN') {
-        // Admin хэрэглэгчид бүх машин харуулах
-        return await listCars();
+        // Admin хэрэглэгчид бүх машин харуулах (сүүлд нэмэгдсэн эхэнд)
+        return await listCars({ orderBy: '-created_at' });
       } else {
-        // Энгийн хэрэглэгчид зөвхөн баталгаажсан машин харуулах
-        return await listCars({ status: 'approved' });
+        // Энгийн хэрэглэгчид зөвхөн баталгаажсан машин харуулах (сүүлд нэмэгдсэн эхэнд)
+        return await listCars({ status: 'approved', orderBy: '-created_at' });
       }
     },
     enabled: user !== undefined
@@ -103,7 +103,13 @@ export default function Home() {
 
     switch (sortBy) {
       case '-created_date':
-        return new Date(b.created_date) - new Date(a.created_date);
+        // Сүүлд нэмэгдсэн зарууд эхэнд (created_at эсвэл created_date ашиглах)
+        const aDate = a.created_at || a.created_date || '';
+        const bDate = b.created_at || b.created_date || '';
+        if (!aDate && !bDate) return 0;
+        if (!aDate) return 1; // aDate байхгүй бол сүүлд
+        if (!bDate) return -1; // bDate байхгүй бол сүүлд
+        return new Date(bDate) - new Date(aDate); // Шинэ нь эхэнд
       case 'price_asc':
         return a.price - b.price;
       case 'price_desc':
@@ -113,7 +119,13 @@ export default function Home() {
       case 'year_desc':
         return b.year - a.year;
       default:
-        return 0;
+        // Default: сүүлд нэмэгдсэн зарууд эхэнд
+        const defaultADate = a.created_at || a.created_date || '';
+        const defaultBDate = b.created_at || b.created_date || '';
+        if (!defaultADate && !defaultBDate) return 0;
+        if (!defaultADate) return 1;
+        if (!defaultBDate) return -1;
+        return new Date(defaultBDate) - new Date(defaultADate);
     }
   });
 
