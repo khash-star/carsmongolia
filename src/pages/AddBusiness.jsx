@@ -249,7 +249,7 @@ export default function AddBusiness() {
         whatsapp: formData.whatsapp.trim() || null,
         address: formData.address.trim() || null,
         images: formData.images || [],
-        status: 'pending',
+        status: user?.role === 'ADMIN' ? 'approved' : 'pending',
         created_at: new Date().toISOString(),
         created_by: user.email,
         view_count: 0,

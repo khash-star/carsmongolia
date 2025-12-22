@@ -13,12 +13,22 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Car, Briefcase, Check, X, Eye, ShieldCheck, Download, Upload, FileJson, Database, TrendingUp, Loader2, FileSpreadsheet, Copy, Link as LinkIcon, Trash2, Edit, Star } from 'lucide-react';
+import { Car, Briefcase, Check, X, Eye, ShieldCheck, Download, Upload, FileJson, Database, TrendingUp, Loader2, FileSpreadsheet, Copy, Link as LinkIcon, Trash2, Edit, Star, ArrowUp } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
 export default function Admin() {
-  const [activeTab, setActiveTab] = useState('cars');
+  // URL parameter-аас tab-ийг уншаад activeTab тохируулах
+  const urlParams = new URLSearchParams(window.location.search);
+  const tabFromUrl = urlParams.get('tab');
+  const [activeTab, setActiveTab] = useState(tabFromUrl || 'cars');
+  
+  // URL parameter өөрчлөгдөхөд activeTab шинэчлэх
+  useEffect(() => {
+    if (tabFromUrl) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [tabFromUrl]);
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isLoadingSamples, setIsLoadingSamples] = useState(false);
@@ -32,6 +42,27 @@ export default function Admin() {
   const [deletingCarId, setDeletingCarId] = useState(null);
   const [deletingBusinessId, setDeletingBusinessId] = useState(null);
   const [vipingCarId, setVipingCarId] = useState(null);
+  const [showScrollToTop, setShowScrollToTop] = useState(false);
+
+  // Scroll to top button харагдах эсэхийг шалгах
+  useEffect(() => {
+    const handleScroll = () => {
+      // "Бүх зар" талбар дээр байгаа эсэхийг шалгах
+      if (activeTab === 'all-cars') {
+        setShowScrollToTop(window.scrollY > 300);
+      } else {
+        setShowScrollToTop(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [activeTab]);
+
+  // Scroll to top функц
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const queryClient = useQueryClient();
 
   const { data: user, isLoading: userLoading } = useQuery({
@@ -339,8 +370,8 @@ export default function Admin() {
 
   // Бүх зарууд засах
   const handleEditCar = (carId) => {
-    // AddCar хуудас руу edit mode-оор шилжих
-    window.location.href = createPageUrl(`AddCar?edit=${carId}`);
+    // AddCar хуудас руу edit mode-оор шилжих, буцахад "Бүх зар" талбар руу буцах
+    window.location.href = createPageUrl(`AddCar?edit=${carId}&returnTo=all-cars`);
   };
 
   // Бүх бизнесүүд засах
@@ -1286,7 +1317,7 @@ export default function Admin() {
                             {new Intl.NumberFormat('mn-MN').format(car.price)}₮
                           </p>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <Link to={createPageUrl(`CarDetails?id=${car.id}`)}>
+                            <Link to={createPageUrl(`CarDetails?id=${car.id}&returnTo=all-cars`)}>
                               <Button size="sm" variant="outline">
                                 <Eye className="w-4 h-4 mr-2" />
                                 Үзэх
@@ -1351,6 +1382,17 @@ export default function Admin() {
                   <p className="text-gray-500">Зар байхгүй байна</p>
                 </CardContent>
               </Card>
+            )}
+            
+            {/* Scroll to Top Button - "Бүх зар" талбар дээр */}
+            {showScrollToTop && activeTab === 'all-cars' && (
+              <Button
+                onClick={scrollToTop}
+                className="fixed bottom-8 right-8 z-50 rounded-full w-12 h-12 shadow-lg bg-blue-600 hover:bg-blue-700 text-white"
+                size="icon"
+              >
+                <ArrowUp className="w-5 h-5" />
+              </Button>
             )}
           </TabsContent>
 

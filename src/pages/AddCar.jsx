@@ -30,6 +30,7 @@ export default function AddCar() {
   const navigate = useNavigate();
   const urlParams = new URLSearchParams(window.location.search);
   const editCarId = urlParams.get('edit');
+  const returnTo = urlParams.get('returnTo'); // Буцах талбар (жишээ: 'all-cars')
   const isEditMode = !!editCarId;
 
   const { data: user, isLoading } = useQuery({
@@ -264,11 +265,18 @@ export default function AddCar() {
         setCreatedCarId(editCarId);
         setIsSuccess(true);
         toast.success('Зар амжилттай шинэчлэгдлээ!');
+        // Буцах URL тохируулах
+        if (returnTo === 'all-cars') {
+          setTimeout(() => {
+            window.location.href = createPageUrl('Admin?tab=all-cars');
+          }, 1500);
+        }
       } else {
         // Create mode - шинэ зар нэмэх
+        // Админ эрхтэй хэрэглэгчид автоматаар батлагдана
         const newCarData = {
           ...carData,
-          status: 'pending',
+          status: user?.role === 'ADMIN' ? 'approved' : 'pending',
           created_at: new Date().toISOString(),
           created_by: user.email,
           view_count: 0
@@ -359,10 +367,16 @@ export default function AddCar() {
 
           <Button 
             variant="outline"
-            onClick={() => navigate(createPageUrl('Profile'))} 
+            onClick={() => {
+              if (returnTo === 'all-cars') {
+                window.location.href = createPageUrl('Admin?tab=all-cars');
+              } else {
+                navigate(createPageUrl('Profile'));
+              }
+            }} 
             className="w-full"
           >
-            Профайл руу буцах
+            {returnTo === 'all-cars' ? 'Бүх зар руу буцах' : 'Профайл руу буцах'}
           </Button>
         </Card>
       </div>

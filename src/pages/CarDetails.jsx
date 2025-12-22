@@ -37,6 +37,7 @@ import { toast } from 'sonner';
 export default function CarDetails() {
   const urlParams = new URLSearchParams(window.location.search);
   const carId = urlParams.get('id');
+  const returnTo = urlParams.get('returnTo'); // Буцах талбар (жишээ: 'all-cars')
   
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [viewCountUpdated, setViewCountUpdated] = useState(false);
@@ -219,7 +220,7 @@ export default function CarDetails() {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Back Button */}
-        <Link to={createPageUrl('Home')} className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-6">
+        <Link to={returnTo === 'all-cars' ? createPageUrl('Admin?tab=all-cars') : createPageUrl('Home')} className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-6">
           <ArrowLeft className="w-5 h-5 mr-2" />
           Буцах
         </Link>
