@@ -367,28 +367,28 @@ export default function Admin() {
     deleteBusinessMutation.mutate(businessId);
   };
 
-  // Бүх зарууд VIP болгох
+  // Бүх зарууд VIP болгох/арилгах
   const vipCarMutation = useMutation({
-    mutationFn: async (carId) => {
-      await updateCar(carId, { is_featured: true });
+    mutationFn: async ({ carId, isVip }) => {
+      await updateCar(carId, { is_featured: isVip });
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries(['allCars']);
       queryClient.invalidateQueries(['pendingCars']);
       queryClient.invalidateQueries(['cars']);
-      toast.success('Зар VIP болгогдлоо!');
+      toast.success(variables.isVip ? 'Зар VIP болгогдлоо!' : 'VIP арилгагдлаа!');
       setVipingCarId(null);
     },
     onError: (error) => {
-      toast.error('VIP болгоход алдаа гарлаа: ' + error.message);
+      toast.error('VIP тохиргоо өөрчлөхөд алдаа гарлаа: ' + error.message);
       setVipingCarId(null);
     }
   });
 
   // Бүх зарууд VIP болгох handler
-  const handleVipCar = async (carId) => {
+  const handleVipCar = async (carId, isVip = true) => {
     setVipingCarId(carId);
-    vipCarMutation.mutate(carId);
+    vipCarMutation.mutate({ carId, isVip });
   };
 
   const exportCarsToFile = async () => {
@@ -1288,23 +1288,32 @@ export default function Admin() {
                                 Үзэх
                               </Button>
                             </Link>
-                            {car.status === 'approved' && !car.is_featured && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="border-amber-500 text-amber-600 hover:bg-amber-50"
-                                onClick={() => handleVipCar(car.id)}
-                                disabled={vipingCarId === car.id}
-                              >
-                                <Star className="w-4 h-4 mr-2" />
-                                {vipingCarId === car.id ? 'VIP болгож байна...' : 'VIP болгох'}
-                              </Button>
-                            )}
-                            {car.is_featured && (
-                              <Badge className="bg-amber-500 text-white">
-                                <Star className="w-3 h-3 mr-1 fill-current" />
-                                VIP
-                              </Badge>
+                            {car.status === 'approved' && (
+                              <>
+                                {!car.is_featured ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-amber-500 text-amber-600 hover:bg-amber-50"
+                                    onClick={() => handleVipCar(car.id, true)}
+                                    disabled={vipingCarId === car.id}
+                                  >
+                                    <Star className="w-4 h-4 mr-2" />
+                                    {vipingCarId === car.id ? 'VIP болгож байна...' : 'VIP болгох'}
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-red-500 text-red-600 hover:bg-red-50"
+                                    onClick={() => handleVipCar(car.id, false)}
+                                    disabled={vipingCarId === car.id}
+                                  >
+                                    <Star className="w-4 h-4 mr-2 fill-current" />
+                                    {vipingCarId === car.id ? 'VIP арилгаж байна...' : 'VIP арилгах'}
+                                  </Button>
+                                )}
+                              </>
                             )}
                             <Button
                               size="sm"
