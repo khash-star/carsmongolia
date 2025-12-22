@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getCurrentUser, setUserRole } from '@/services/auth';
-import { list as listCars, update as updateCar } from '@/services/cars';
-import { list as listBusinesses, update as updateBusiness } from '@/services/businesses';
+import { list as listCars, update as updateCar, remove as removeCar } from '@/services/cars';
+import { list as listBusinesses, update as updateBusiness, remove as removeBusiness } from '@/services/businesses';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Car, Briefcase, Check, X, Eye, ShieldCheck, Download, Upload, FileJson, Database, TrendingUp, Loader2, FileSpreadsheet, Copy, Link as LinkIcon } from 'lucide-react';
+import { Car, Briefcase, Check, X, Eye, ShieldCheck, Download, Upload, FileJson, Database, TrendingUp, Loader2, FileSpreadsheet, Copy, Link as LinkIcon, Trash2, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
@@ -27,6 +27,10 @@ export default function Admin() {
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
   const [permanentCatalogLink, setPermanentCatalogLink] = useState(null);
   const [isUpdatingCatalog, setIsUpdatingCatalog] = useState(false);
+  const [editingCarId, setEditingCarId] = useState(null);
+  const [editingBusinessId, setEditingBusinessId] = useState(null);
+  const [deletingCarId, setDeletingCarId] = useState(null);
+  const [deletingBusinessId, setDeletingBusinessId] = useState(null);
   const queryClient = useQueryClient();
 
   const { data: user, isLoading: userLoading } = useQuery({
@@ -126,6 +130,22 @@ export default function Admin() {
           return bDate.localeCompare(aDate); // Шинэ нь эхэнд
         })
         .slice(0, 10); // Хамгийн сүүлийн 10 зар
+    }
+  });
+
+  // Бүх зарууд
+  const { data: allCars = [], isLoading: allCarsLoading } = useQuery({
+    queryKey: ['allCars'],
+    queryFn: async () => {
+      return await listCars({});
+    }
+  });
+
+  // Бүх бизнесүүд
+  const { data: allBusinesses = [], isLoading: allBusinessesLoading } = useQuery({
+    queryKey: ['allBusinesses'],
+    queryFn: async () => {
+      return await listBusinesses({});
     }
   });
 
@@ -279,6 +299,74 @@ export default function Admin() {
       toast.success('Бизнес цуцлагдлаа');
     }
   });
+
+  // Бүх зарууд устгах
+  const deleteCarMutation = useMutation({
+    mutationFn: async (carId) => {
+      await removeCar(carId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['allCars']);
+      queryClient.invalidateQueries(['pendingCars']);
+      queryClient.invalidateQueries(['cars']);
+      toast.success('Зар амжилттай устгагдлаа');
+      setDeletingCarId(null);
+    },
+    onError: (error) => {
+      toast.error('Зар устгахэд алдаа гарлаа: ' + error.message);
+      setDeletingCarId(null);
+    }
+  });
+
+  // Бүх бизнесүүд устгах
+  const deleteBusinessMutation = useMutation({
+    mutationFn: async (businessId) => {
+      await removeBusiness(businessId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['allBusinesses']);
+      queryClient.invalidateQueries(['pendingBusinesses']);
+      queryClient.invalidateQueries(['businesses']);
+      toast.success('Бизнес амжилттай устгагдлаа');
+      setDeletingBusinessId(null);
+    },
+    onError: (error) => {
+      toast.error('Бизнес устгахэд алдаа гарлаа: ' + error.message);
+      setDeletingBusinessId(null);
+    }
+  });
+
+  // Бүх зарууд засах
+  const handleEditCar = (carId) => {
+    setEditingCarId(carId);
+    // Edit modal эсвэл edit page руу шилжих
+    // Одоогоор зөвхөн ID хадгална
+  };
+
+  // Бүх бизнесүүд засах
+  const handleEditBusiness = (businessId) => {
+    setEditingBusinessId(businessId);
+    // Edit modal эсвэл edit page руу шилжих
+    // Одоогоор зөвхөн ID хадгална
+  };
+
+  // Бүх зарууд устгах
+  const handleDeleteCar = async (carId) => {
+    if (!window.confirm('Та энэ зарыг устгахдаа итгэлтэй байна уу? Энэ үйлдлийг буцаах боломжгүй.')) {
+      return;
+    }
+    setDeletingCarId(carId);
+    deleteCarMutation.mutate(carId);
+  };
+
+  // Бүх бизнесүүд устгах
+  const handleDeleteBusiness = async (businessId) => {
+    if (!window.confirm('Та энэ бизнесийг устгахдаа итгэлтэй байна уу? Энэ үйлдлийг буцаах боломжгүй.')) {
+      return;
+    }
+    setDeletingBusinessId(businessId);
+    deleteBusinessMutation.mutate(businessId);
+  };
 
   const exportCarsToFile = async () => {
     setIsExporting(true);
@@ -945,7 +1033,7 @@ export default function Admin() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
             <TabsTrigger value="cars" className="gap-2">
               <Car className="w-4 h-4" />
               Машины зарууд ({pendingCars.length})
@@ -953,6 +1041,14 @@ export default function Admin() {
             <TabsTrigger value="businesses" className="gap-2">
               <Briefcase className="w-4 h-4" />
               Бизнесүүд ({pendingBusinesses.length})
+            </TabsTrigger>
+            <TabsTrigger value="all-cars" className="gap-2">
+              <Car className="w-4 h-4" />
+              Бүх зар ({allCars.length})
+            </TabsTrigger>
+            <TabsTrigger value="all-businesses" className="gap-2">
+              <Briefcase className="w-4 h-4" />
+              Бүх Бизнес ({allBusinesses.length})
             </TabsTrigger>
             <TabsTrigger value="catalog" className="gap-2">
               <FileSpreadsheet className="w-4 h-4" />
@@ -1115,6 +1211,174 @@ export default function Admin() {
                 <CardContent className="p-12 text-center">
                   <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                   <p className="text-gray-500">Хүлээгдэж буй бизнес байхгүй</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Бүх зарууд */}
+          <TabsContent value="all-cars" className="space-y-4">
+            {allCarsLoading ? (
+              <div className="space-y-4">
+                {[...Array(3)].map((_, i) => (
+                  <Skeleton key={i} className="h-32 rounded-xl" />
+                ))}
+              </div>
+            ) : allCars.length > 0 ? (
+              <div className="space-y-4">
+                {allCars.map((car) => (
+                  <Card key={car.id} className="border-0 shadow-sm">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-4">
+                        <div className="w-32 h-24 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                          {car.images?.[0] ? (
+                            <img src={car.images[0]} alt={car.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Car className="w-8 h-8 text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <h3 className="font-semibold text-lg">{car.title}</h3>
+                              <p className="text-gray-500 text-sm">{car.make} {car.model} • {car.year}</p>
+                            </div>
+                            <Badge variant="outline" className={
+                              car.status === 'approved' ? 'bg-green-50 text-green-700 border-green-200' :
+                              car.status === 'rejected' ? 'bg-red-50 text-red-700 border-red-200' :
+                              'bg-yellow-50 text-yellow-700 border-yellow-200'
+                            }>
+                              {car.status === 'approved' ? 'Баталгаажсан' :
+                               car.status === 'rejected' ? 'Цуцлагдсан' :
+                               'Хүлээгдэж байна'}
+                            </Badge>
+                          </div>
+                          <p className="text-xl font-bold text-blue-600 mb-3">
+                            {new Intl.NumberFormat('mn-MN').format(car.price)}₮
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <Link to={createPageUrl(`CarDetails?id=${car.id}`)}>
+                              <Button size="sm" variant="outline">
+                                <Eye className="w-4 h-4 mr-2" />
+                                Үзэх
+                              </Button>
+                            </Link>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEditCar(car.id)}
+                              disabled={editingCarId === car.id}
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              {editingCarId === car.id ? 'Засаж байна...' : 'Засах'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleDeleteCar(car.id)}
+                              disabled={deletingCarId === car.id}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              {deletingCarId === car.id ? 'Устгаж байна...' : 'Устгах'}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card className="border-0 shadow-sm">
+                <CardContent className="p-12 text-center">
+                  <Car className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500">Зар байхгүй байна</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Бүх бизнесүүд */}
+          <TabsContent value="all-businesses" className="space-y-4">
+            {allBusinessesLoading ? (
+              <div className="space-y-4">
+                {[...Array(3)].map((_, i) => (
+                  <Skeleton key={i} className="h-32 rounded-xl" />
+                ))}
+              </div>
+            ) : allBusinesses.length > 0 ? (
+              <div className="space-y-4">
+                {allBusinesses.map((business) => (
+                  <Card key={business.id} className="border-0 shadow-sm">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-4">
+                        <div className="w-32 h-24 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                          {business.images?.[0] ? (
+                            <img src={business.images[0]} alt={business.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Briefcase className="w-8 h-8 text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <h3 className="font-semibold text-lg">{business.name}</h3>
+                              <p className="text-gray-500 text-sm">{business.type} • {business.category}</p>
+                            </div>
+                            <Badge variant="outline" className={
+                              business.status === 'approved' ? 'bg-green-50 text-green-700 border-green-200' :
+                              business.status === 'rejected' ? 'bg-red-50 text-red-700 border-red-200' :
+                              'bg-yellow-50 text-yellow-700 border-yellow-200'
+                            }>
+                              {business.status === 'approved' ? 'Баталгаажсан' :
+                               business.status === 'rejected' ? 'Цуцлагдсан' :
+                               'Хүлээгдэж байна'}
+                            </Badge>
+                          </div>
+                          {business.description && (
+                            <p className="text-gray-600 text-sm mb-3 line-clamp-2">{business.description}</p>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <Link to={createPageUrl(`BusinessDetails?id=${business.id}`)}>
+                              <Button size="sm" variant="outline">
+                                <Eye className="w-4 h-4 mr-2" />
+                                Үзэх
+                              </Button>
+                            </Link>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEditBusiness(business.id)}
+                              disabled={editingBusinessId === business.id}
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              {editingBusinessId === business.id ? 'Засаж байна...' : 'Засах'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleDeleteBusiness(business.id)}
+                              disabled={deletingBusinessId === business.id}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              {deletingBusinessId === business.id ? 'Устгаж байна...' : 'Устгах'}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card className="border-0 shadow-sm">
+                <CardContent className="p-12 text-center">
+                  <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500">Бизнес байхгүй байна</p>
                 </CardContent>
               </Card>
             )}
