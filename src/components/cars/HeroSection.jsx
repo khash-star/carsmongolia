@@ -12,16 +12,31 @@ export default function HeroSection() {
     document.getElementById('listings')?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Fetch latest approved cars for background slider
-  const { data: latestCars = [] } = useQuery({
-    queryKey: ['latestCarsHero'],
-    queryFn: () => listCars({ status: 'approved', orderBy: '-created_date', limit: 10 }),
-    refetchInterval: 10000, // Refresh every 10 seconds
+  // Fetch VIP/featured cars first, then latest approved cars for background slider
+  const { data: featuredCars = [] } = useQuery({
+    queryKey: ['featuredCarsHero'],
+    queryFn: async () => {
+      const allCars = await listCars({ status: 'approved', orderBy: '-created_date', limit: 20 });
+      // Filter VIP cars (is_featured === true)
+      return allCars.filter(car => car.is_featured === true || car.is_featured === 'true' || car.is_featured === 1);
+    },
+    refetchInterval: 10000,
     refetchOnWindowFocus: true
   });
 
+  // Fetch latest approved cars for background slider (if not enough featured cars)
+  const { data: latestCars = [] } = useQuery({
+    queryKey: ['latestCarsHero'],
+    queryFn: () => listCars({ status: 'approved', orderBy: '-created_date', limit: 10 }),
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true
+  });
+
+  // Prioritize featured cars, fallback to latest cars
+  const carsToShow = featuredCars.length > 0 ? featuredCars : latestCars;
+  
   // Filter cars that have images
-  const carsWithImages = latestCars.filter(car => car.images && car.images.length > 0);
+  const carsWithImages = carsToShow.filter(car => car.images && car.images.length > 0);
 
   return (
     <div className="relative min-h-[600px] flex items-start pt-6 overflow-hidden pt-15">

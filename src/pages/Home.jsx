@@ -95,11 +95,15 @@ export default function Home() {
     return true;
   });
 
-  // VIP зарууд (Урсдаг зар)
-  const featuredCars = filteredCars.filter(car => car.is_featured === true);
+  // VIP зарууд (Урсдаг зар) - is_featured === true эсвэл is_featured === 'true'
+  const featuredCars = filteredCars.filter(car => {
+    return car.is_featured === true || car.is_featured === 'true' || car.is_featured === 1;
+  });
   
   // Бусад зарууд (VIP биш)
-  const regularCars = filteredCars.filter(car => !car.is_featured);
+  const regularCars = filteredCars.filter(car => {
+    return !(car.is_featured === true || car.is_featured === 'true' || car.is_featured === 1);
+  });
 
   // Sort cars
   const sortCars = (cars) => {
@@ -161,6 +165,12 @@ export default function Home() {
                 {sortedFeaturedCars.length}
               </span>
             </div>
+            {/* Debug info - remove in production */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="text-xs text-gray-500 mb-2">
+                VIP зарууд: {sortedFeaturedCars.map(c => c.id).join(', ')}
+              </div>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {sortedFeaturedCars.map((car, index) => (
                 <div key={car.id} className="relative">
