@@ -1,0 +1,5 @@
+id,title,description,availability,condition,price,link,image_link,additional_image_link,brand
+abc123,2020 Toyota Camry,Машины дэлгэрэнгүй мэдээлэл | Гүйлт: 50000 км | Түлш: Бензин | Хурдны хайрцаг: Автомат | Бие: Седан | Өнгө: Цагаан,in stock,used,45000000,https://carsmongolia.mn/CarDetails?id=abc123,https://example.com/images/car1.jpg,https://example.com/images/car1-2.jpg,https://example.com/images/car1-3.jpg,Toyota
+xyz789,2018 Honda CR-V,Шинэ төрхтэй машин | Гүйлт: 80000 км | Түлш: Бензин | Хурдны хайрцаг: Автомат | Бие: SUV | Өнгө: Хар,in stock,used,35000000,https://carsmongolia.mn/CarDetails?id=xyz789,https://example.com/images/car2.jpg,https://example.com/images/car2-2.jpg,Honda
+def456,2021 Nissan Altima,Гоё машин | Гүйлт: 30000 км | Түлш: Бензин | Хурдны хайрцаг: Механик | Бие: Седан | Өнгө: Цэнхэр,in stock,used,55000000,https://carsmongolia.mn/CarDetails?id=def456,https://example.com/images/car3.jpg,,Nissan
+

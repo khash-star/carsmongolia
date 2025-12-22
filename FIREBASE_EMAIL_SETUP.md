@@ -70,6 +70,60 @@ https://your-domain.com/__/auth/action?mode=%MODE%&oobCode=%OOB_CODE%
 
 ### Алхам 4: Email илгээгч тохируулах
 
+**⚠️ Чухал:** Firebase Authentication нь өөрийн email service ашигладаг бөгөөд sender email (`noreply@carsmongolia.mn`) тохируулах боломжгүй. Firebase-ийн default sender email: `noreply@[project-id].firebaseapp.com`
+
+**Хэрэв `noreply@carsmongolia.mn`-аас email илгээх хэрэгтэй бол:**
+
+**⚠️ Чухал:** Firebase Authentication email-үүд (нууц үг сэргээх, email verification) нь Firebase-ийн дотоод системээр илгээгддэг бөгөөд sender email өөрчлөх боломжгүй. Extensions нь Authentication email-д ажиллахгүй.
+
+#### Сонголт 1: Cloud Functions ашиглах (Зөвлөмж)
+
+Custom email service (SMTP, SendGrid, Mailgun) ашиглах Cloud Functions үүсгэх:
+
+1. **Cloud Functions үүсгэх:**
+   - Authentication trigger ашиглах
+   - Custom email service ашиглах
+   - `noreply@carsmongolia.mn`-аас email илгээх
+
+2. **SMTP Settings:**
+   - **SMTP Host:** `smtp.itools.mn` (эсвэл email provider-ийн SMTP)
+   - **SMTP Port:** `587` (эсвэл `465`)
+   - **SMTP User:** `noreply@carsmongolia.mn`
+   - **SMTP Password:** Email account password
+   - **From Email:** `noreply@carsmongolia.mn`
+
+#### Сонголт 2: Firebase Extensions (Firestore Email)
+
+**"Trigger Email from Firestore"** extension ашиглах (Authentication email биш, Firestore trigger email):
+
+1. **Firebase Console → Extensions** руу орох
+2. **"Trigger Email from Firestore"** extension суулгах
+3. Firestore document-д үндэслэн email илгээх
+4. SMTP settings тохируулах:
+   - **SMTP Host:** `smtp.itools.mn`
+   - **SMTP Port:** `587`
+   - **SMTP User:** `noreply@carsmongolia.mn`
+   - **SMTP Password:** Email account password
+   - **From Email:** `noreply@carsmongolia.mn`
+   - **From Name:** `AutoZar`
+
+**Чухал:** Энэ extension нь Authentication email-д ажиллахгүй, зөвхөн Firestore trigger email-д ажиллана.
+
+#### Сонголт 3: Firebase Default Email Service (Одоогийн)
+
+Firebase-ийн default email service ашиглах:
+- Sender: `noreply@carsmongolia-d410a.firebaseapp.com`
+- Email authentication зөв тохируулагдсан бол spam folder-д бага орох
+- Authentication email-үүд автоматаар илгээгдэнэ
+
+#### Сонголт 3: Firebase Default Email Service (Одоогийн)
+
+Firebase-ийн default email service ашиглах (sender email өөрчлөх боломжгүй):
+- Sender: `noreply@carsmongolia-d410a.firebaseapp.com`
+- Email authentication зөв тохируулагдсан бол spam folder-д бага орох
+
+**Authentication Settings:**
+
 1. **Authentication** → **Settings** таб руу орох
 2. **"Authorized domains"** хэсэгт:
    - `localhost` байгаа эсэхийг шалгах
@@ -77,6 +131,7 @@ https://your-domain.com/__/auth/action?mode=%MODE%&oobCode=%OOB_CODE%
 3. **"Email action handler URL"** хэсэгт:
    - **Localhost (Development):** `http://localhost:5173/__/auth/action`
    - **Production:** `https://carsmongolia-d410a.firebaseapp.com/__/auth/action`
+   - **Custom Domain:** `https://carsmongolia.mn/__/auth/action`
    - Хэрэв байхгүй бол нэмэх
    - **Эсвэл зөвхөн:** `%LINK%` (Firebase автоматаар зөв URL үүсгэнэ)
 

@@ -384,6 +384,224 @@ export default function Admin() {
     setIsImporting(false);
   };
 
+  // Excel экспорт/импорт функцүүд
+  const exportCarsToExcel = async () => {
+    setIsExporting(true);
+    try {
+      const carsSnapshot = await getDocs(collection(db, 'cars'));
+      const carsData = carsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // Excel формат руу хөрвүүлэх
+      const excelData = carsData.map(car => ({
+        'ID': car.id || '',
+        'Гарчиг': car.title || '',
+        'Марк': car.make || '',
+        'Загвар': car.model || '',
+        'Он': car.year || '',
+        'Үнэ': car.price || '',
+        'Гүйлт': car.mileage || '',
+        'Түлш': car.fuel_type === 'gasoline' ? 'Бензин' : car.fuel_type === 'diesel' ? 'Дизель' : car.fuel_type || '',
+        'Хурдны хайрцаг': car.transmission === 'automatic' ? 'Автомат' : car.transmission === 'manual' ? 'Механик' : car.transmission || '',
+        'Бие': car.body_type || '',
+        'Хөдөлгүүрийн багтаамж': car.engine_capacity || '',
+        'Хөтлөх төрөл': car.drive_type || '',
+        'Гарал үүсэл': car.origin_country || '',
+        'Гадаад өнгө': car.exterior_color || '',
+        'Дотоод өнгө': car.interior_color || '',
+        'Тайлбар': car.description || '',
+        'Зургууд': car.images ? car.images.join('; ') : '',
+        'Байршил': car.location || '',
+        'Утас': car.contact_phone || '',
+        'WhatsApp': car.contact_whatsapp || '',
+        'Төлөв': car.status || '',
+        'Харагдсан тоо': car.view_count || 0,
+        'Бүртгэгдсэн огноо': car.created_at || '',
+        'Шинэчлэгдсэн огноо': car.updated_at || '',
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Зарууд');
+      
+      // Column width тохируулах
+      ws['!cols'] = [
+        { wch: 20 }, { wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 8 },
+        { wch: 15 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 12 },
+        { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+        { wch: 12 }, { wch: 50 }, { wch: 50 }, { wch: 15 }, { wch: 12 },
+        { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 20 }, { wch: 20 },
+      ];
+      
+      const fileName = `cars_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      
+      toast.success(`${carsData.length} зар Excel форматтай экспорт хийгдлээ`);
+    } catch (error) {
+      toast.error('Excel экспорт хийхэд алдаа гарлаа: ' + error.message);
+    }
+    setIsExporting(false);
+  };
+
+  const importCarsFromExcel = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      if (!Array.isArray(jsonData) || jsonData.length === 0) {
+        throw new Error('Файл хоосон эсвэл формат буруу байна');
+      }
+
+      let imported = 0;
+      for (const row of jsonData) {
+        // Excel-ээс Firestore формат руу хөрвүүлэх
+        const carData = {
+          title: row['Гарчиг'] || row['title'] || '',
+          make: row['Марк'] || row['make'] || '',
+          model: row['Загвар'] || row['model'] || '',
+          year: row['Он'] || row['year'] || null,
+          price: row['Үнэ'] || row['price'] || null,
+          mileage: row['Гүйлт'] || row['mileage'] || null,
+          fuel_type: row['Түлш'] === 'Бензин' ? 'gasoline' : row['Түлш'] === 'Дизель' ? 'diesel' : row['Түлш'] || row['fuel_type'] || '',
+          transmission: row['Хурдны хайрцаг'] === 'Автомат' ? 'automatic' : row['Хурдны хайрцаг'] === 'Механик' ? 'manual' : row['Хурдны хайрцаг'] || row['transmission'] || '',
+          body_type: row['Бие'] || row['body_type'] || '',
+          engine_capacity: row['Хөдөлгүүрийн багтаамж'] || row['engine_capacity'] || null,
+          drive_type: row['Хөтлөх төрөл'] || row['drive_type'] || '',
+          origin_country: row['Гарал үүсэл'] || row['origin_country'] || '',
+          exterior_color: row['Гадаад өнгө'] || row['exterior_color'] || '',
+          interior_color: row['Дотоод өнгө'] || row['interior_color'] || '',
+          description: row['Тайлбар'] || row['description'] || '',
+          images: row['Зургууд'] ? String(row['Зургууд']).split(';').map(url => url.trim()).filter(Boolean) : [],
+          location: row['Байршил'] || row['location'] || '',
+          contact_phone: row['Утас'] || row['contact_phone'] || '',
+          contact_whatsapp: row['WhatsApp'] || row['contact_whatsapp'] || '',
+          status: row['Төлөв'] || row['status'] || 'pending',
+          view_count: row['Харагдсан тоо'] || row['view_count'] || 0,
+          created_at: row['Бүртгэгдсэн огноо'] || row['created_at'] || new Date().toISOString(),
+          updated_at: row['Шинэчлэгдсэн огноо'] || row['updated_at'] || new Date().toISOString(),
+        };
+
+        await addDoc(collection(db, 'cars'), carData);
+        imported++;
+      }
+
+      queryClient.invalidateQueries(['pendingCars']);
+      queryClient.invalidateQueries(['cars']);
+      toast.success(`${imported} зар Excel файлаас амжилттай импорт хийгдлээ`);
+      event.target.value = '';
+    } catch (error) {
+      toast.error('Excel импорт хийхэд алдаа гарлаа: ' + error.message);
+    }
+    setIsImporting(false);
+  };
+
+  const exportBusinessesToExcel = async () => {
+    setIsExporting(true);
+    try {
+      const businessesSnapshot = await getDocs(collection(db, 'businesses'));
+      const businessesData = businessesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // Excel формат руу хөрвүүлэх
+      const excelData = businessesData.map(business => ({
+        'ID': business.id || '',
+        'Нэр': business.name || '',
+        'Төрөл': business.type || '',
+        'Ангилал': business.category || '',
+        'Тайлбар': business.description || '',
+        'Утас': business.phone || '',
+        'WhatsApp': business.whatsapp || '',
+        'Хаяг': business.address || '',
+        'Дугуйны өргөн': business.tire_width || '',
+        'Дугуйны профиль': business.tire_profile || '',
+        'Дугуйны обод': business.tire_rim || '',
+        'Үнэ': business.price || '',
+        'Зургууд': business.images ? business.images.join('; ') : '',
+        'Төлөв': business.status || '',
+        'Харагдсан тоо': business.view_count || 0,
+        'Бүртгэгдсэн огноо': business.created_at || '',
+        'Шинэчлэгдсэн огноо': business.updated_at || '',
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Бизнесүүд');
+      
+      // Column width тохируулах
+      ws['!cols'] = [
+        { wch: 20 }, { wch: 30 }, { wch: 15 }, { wch: 20 }, { wch: 50 },
+        { wch: 12 }, { wch: 12 }, { wch: 30 }, { wch: 12 }, { wch: 12 },
+        { wch: 12 }, { wch: 15 }, { wch: 50 }, { wch: 12 }, { wch: 12 },
+        { wch: 20 }, { wch: 20 },
+      ];
+      
+      const fileName = `businesses_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      
+      toast.success(`${businessesData.length} бизнес Excel форматтай экспорт хийгдлээ`);
+    } catch (error) {
+      toast.error('Excel экспорт хийхэд алдаа гарлаа: ' + error.message);
+    }
+    setIsExporting(false);
+  };
+
+  const importBusinessesFromExcel = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      if (!Array.isArray(jsonData) || jsonData.length === 0) {
+        throw new Error('Файл хоосон эсвэл формат буруу байна');
+      }
+
+      let imported = 0;
+      for (const row of jsonData) {
+        // Excel-ээс Firestore формат руу хөрвүүлэх
+        const businessData = {
+          name: row['Нэр'] || row['name'] || '',
+          type: row['Төрөл'] || row['type'] || '',
+          category: row['Ангилал'] || row['category'] || '',
+          description: row['Тайлбар'] || row['description'] || '',
+          phone: row['Утас'] || row['phone'] || '',
+          whatsapp: row['WhatsApp'] || row['whatsapp'] || '',
+          address: row['Хаяг'] || row['address'] || '',
+          tire_width: row['Дугуйны өргөн'] || row['tire_width'] || null,
+          tire_profile: row['Дугуйны профиль'] || row['tire_profile'] || null,
+          tire_rim: row['Дугуйны обод'] || row['tire_rim'] || null,
+          price: row['Үнэ'] || row['price'] || null,
+          images: row['Зургууд'] ? String(row['Зургууд']).split(';').map(url => url.trim()).filter(Boolean) : [],
+          status: row['Төлөв'] || row['status'] || 'pending',
+          view_count: row['Харагдсан тоо'] || row['view_count'] || 0,
+          created_at: row['Бүртгэгдсэн огноо'] || row['created_at'] || new Date().toISOString(),
+          updated_at: row['Шинэчлэгдсэн огноо'] || row['updated_at'] || new Date().toISOString(),
+        };
+
+        await addDoc(collection(db, 'businesses'), businessData);
+        imported++;
+      }
+
+      queryClient.invalidateQueries(['pendingBusinesses']);
+      queryClient.invalidateQueries(['businesses']);
+      toast.success(`${imported} бизнес Excel файлаас амжилттай импорт хийгдлээ`);
+      event.target.value = '';
+    } catch (error) {
+      toast.error('Excel импорт хийхэд алдаа гарлаа: ' + error.message);
+    }
+    setIsImporting(false);
+  };
+
   const loadSampleData = async () => {
     setIsLoadingSamples(true);
     try {
@@ -653,15 +871,19 @@ export default function Admin() {
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Админ удирдлага</h1>
               <p className="text-gray-500">Зар болон бизнесүүдийг батлах/цуцлах</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button onClick={exportCarsToFile} disabled={isExporting} variant="outline" className="gap-2" size="sm">
-                <Download className="w-4 h-4" />
-                Зарууд
+                <FileJson className="w-4 h-4" />
+                Зарууд (JSON)
+              </Button>
+              <Button onClick={exportCarsToExcel} disabled={isExporting} variant="outline" className="gap-2" size="sm">
+                <FileSpreadsheet className="w-4 h-4" />
+                Зарууд (Excel)
               </Button>
               <Button asChild variant="outline" className="gap-2" size="sm">
                 <label className="cursor-pointer">
                   <Upload className="w-4 h-4" />
-                  Зарууд
+                  Зарууд (JSON)
                   <input
                     type="file"
                     accept=".json"
@@ -671,18 +893,48 @@ export default function Admin() {
                   />
                 </label>
               </Button>
+              <Button asChild variant="outline" className="gap-2" size="sm">
+                <label className="cursor-pointer">
+                  <Upload className="w-4 h-4" />
+                  Зарууд (Excel)
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={importCarsFromExcel}
+                    className="hidden"
+                    disabled={isImporting}
+                  />
+                </label>
+              </Button>
               <Button onClick={exportBusinessesToFile} disabled={isExporting} variant="outline" className="gap-2 bg-green-50" size="sm">
-                <Download className="w-4 h-4" />
-                Бизнес
+                <FileJson className="w-4 h-4" />
+                Бизнес (JSON)
+              </Button>
+              <Button onClick={exportBusinessesToExcel} disabled={isExporting} variant="outline" className="gap-2 bg-green-50" size="sm">
+                <FileSpreadsheet className="w-4 h-4" />
+                Бизнес (Excel)
               </Button>
               <Button asChild variant="outline" className="gap-2 bg-green-50" size="sm">
                 <label className="cursor-pointer">
                   <Upload className="w-4 h-4" />
-                  Бизнес
+                  Бизнес (JSON)
                   <input
                     type="file"
                     accept=".json"
                     onChange={importBusinessesFromFile}
+                    className="hidden"
+                    disabled={isImporting}
+                  />
+                </label>
+              </Button>
+              <Button asChild variant="outline" className="gap-2 bg-green-50" size="sm">
+                <label className="cursor-pointer">
+                  <Upload className="w-4 h-4" />
+                  Бизнес (Excel)
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={importBusinessesFromExcel}
                     className="hidden"
                     disabled={isImporting}
                   />
@@ -1170,22 +1422,39 @@ export default function Admin() {
                     </div>
                     <div>
                       <p className="font-semibold">Машины зарууд</p>
-                      <p className="text-sm text-gray-500">JSON файлаар экспорт/импорт хийх</p>
+                      <p className="text-sm text-gray-500">JSON болон Excel файлаар экспорт/импорт хийх</p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button onClick={exportCarsToFile} disabled={isExporting} size="sm" className="bg-blue-600 hover:bg-blue-700">
-                      <Download className="w-4 h-4 mr-1" />
-                      Экспорт
+                  <div className="flex gap-2 flex-wrap">
+                    <Button onClick={exportCarsToFile} disabled={isExporting} size="sm" variant="outline" className="bg-white">
+                      <FileJson className="w-4 h-4 mr-1" />
+                      JSON
                     </Button>
-                    <Button asChild variant="outline" size="sm">
+                    <Button onClick={exportCarsToExcel} disabled={isExporting} size="sm" className="bg-blue-600 hover:bg-blue-700">
+                      <FileSpreadsheet className="w-4 h-4 mr-1" />
+                      Excel
+                    </Button>
+                    <Button asChild variant="outline" size="sm" className="bg-white">
                       <label className="cursor-pointer">
                         <Upload className="w-4 h-4 mr-1" />
-                        Импорт
+                        JSON
                         <input
                           type="file"
                           accept=".json"
                           onChange={importCarsFromFile}
+                          className="hidden"
+                          disabled={isImporting}
+                        />
+                      </label>
+                    </Button>
+                    <Button asChild variant="outline" size="sm" className="bg-white">
+                      <label className="cursor-pointer">
+                        <Upload className="w-4 h-4 mr-1" />
+                        Excel
+                        <input
+                          type="file"
+                          accept=".xlsx,.xls"
+                          onChange={importCarsFromExcel}
                           className="hidden"
                           disabled={isImporting}
                         />
@@ -1201,22 +1470,39 @@ export default function Admin() {
                     </div>
                     <div>
                       <p className="font-semibold">Бизнесүүд</p>
-                      <p className="text-sm text-gray-500">JSON файлаар экспорт/импорт хийх</p>
+                      <p className="text-sm text-gray-500">JSON болон Excel файлаар экспорт/импорт хийх</p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button onClick={exportBusinessesToFile} disabled={isExporting} size="sm" className="bg-green-600 hover:bg-green-700">
-                      <Download className="w-4 h-4 mr-1" />
-                      Экспорт
+                  <div className="flex gap-2 flex-wrap">
+                    <Button onClick={exportBusinessesToFile} disabled={isExporting} size="sm" variant="outline" className="bg-white">
+                      <FileJson className="w-4 h-4 mr-1" />
+                      JSON
                     </Button>
-                    <Button asChild variant="outline" size="sm">
+                    <Button onClick={exportBusinessesToExcel} disabled={isExporting} size="sm" className="bg-green-600 hover:bg-green-700">
+                      <FileSpreadsheet className="w-4 h-4 mr-1" />
+                      Excel
+                    </Button>
+                    <Button asChild variant="outline" size="sm" className="bg-white">
                       <label className="cursor-pointer">
                         <Upload className="w-4 h-4 mr-1" />
-                        Импорт
+                        JSON
                         <input
                           type="file"
                           accept=".json"
                           onChange={importBusinessesFromFile}
+                          className="hidden"
+                          disabled={isImporting}
+                        />
+                      </label>
+                    </Button>
+                    <Button asChild variant="outline" size="sm" className="bg-white">
+                      <label className="cursor-pointer">
+                        <Upload className="w-4 h-4 mr-1" />
+                        Excel
+                        <input
+                          type="file"
+                          accept=".xlsx,.xls"
+                          onChange={importBusinessesFromExcel}
                           className="hidden"
                           disabled={isImporting}
                         />
