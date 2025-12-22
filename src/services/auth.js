@@ -5,10 +5,17 @@ import {
   onAuthStateChanged,
   sendPasswordResetEmail,
   signInWithPopup,
+  signInWithCredential,
   FacebookAuthProvider
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, getFirestore } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
+import { 
+  isMobileDevice, 
+  checkFacebookAppInstalled, 
+  loginWithFacebookSDK,
+  getFacebookCredential 
+} from '@/utils/facebook';
 
 const USERS_COLLECTION = 'users';
 
@@ -251,9 +258,68 @@ export const resetPassword = async (email) => {
 
 /**
  * Login with Facebook
+ * Утсан дээрх Facebook апп-аар нэвтрэх (хэрэв боломжтой бол)
+ * Эсвэл одоогийн Firebase popup ашиглах
  */
 export const loginWithFacebook = async () => {
   try {
+    // Mobile device дээр Facebook апп-аар нэвтрэх оролдлого
+    if (isMobileDevice()) {
+      try {
+        const hasFacebookApp = await checkFacebookAppInstalled();
+        
+        if (hasFacebookApp) {
+          // Facebook SDK-ийн native login ашиглах
+          const facebookResponse = await loginWithFacebookSDK();
+          const credential = await getFacebookCredential(facebookResponse.accessToken);
+          const result = await signInWithCredential(auth, credential);
+          const user = result.user;
+          
+          // Get user role from Firestore
+          let userDoc = await getDoc(doc(db, USERS_COLLECTION, user.uid));
+          let userData = userDoc.data();
+          
+          // If user document doesn't exist, create it
+          if (!userData) {
+            const newUserData = {
+              email: user.email,
+              full_name: user.displayName || user.email?.split('@')[0] || 'Facebook User',
+              role: 'USER',
+              created_at: new Date().toISOString(),
+              provider: 'facebook'
+            };
+            
+            try {
+              await setDoc(doc(db, USERS_COLLECTION, user.uid), newUserData);
+              userData = newUserData;
+            } catch (firestoreError) {
+              console.warn('Firestore user document creation failed:', firestoreError);
+              userData = {
+                email: user.email,
+                full_name: user.displayName || user.email?.split('@')[0] || 'Facebook User',
+                role: 'USER'
+              };
+            }
+          }
+          
+          const userInfo = {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            role: userData?.role || 'USER',
+            full_name: userData?.full_name || user.displayName || user.email?.split('@')[0] || 'Facebook User',
+            ...userData
+          };
+          
+          return userInfo;
+        }
+      } catch (sdkError) {
+        // Facebook SDK алдаа гарвал одоогийн popup flow ашиглах
+        console.warn('Facebook SDK login алдаа, popup flow ашиглаж байна:', sdkError);
+      }
+    }
+    
+    // Desktop эсвэл Facebook SDK ажиллахгүй бол одоогийн popup flow ашиглах
     const provider = new FacebookAuthProvider();
     // Request email permission
     provider.addScope('email');

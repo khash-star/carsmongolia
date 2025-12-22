@@ -10,7 +10,22 @@
   <body>
     <div id="root"></div>
     <div id="fb-root"></div>
-    <script async defer crossorigin="anonymous" src="https://connect.facebook.net/mn_MN/sdk.js#xfbml=1&version=v18.0&autoLogAppEvents=1"></script>
+    <script>
+      // Facebook SDK initialization
+      // App ID-г runtime дээр тохируулах (src/utils/facebook.js дээр)
+      window.fbAsyncInit = function() {
+        // App ID-г facebook.js дээр тохируулна
+        if (window.FB && window.__FACEBOOK_APP_ID__) {
+          FB.init({
+            appId: window.__FACEBOOK_APP_ID__,
+            cookie: true,
+            xfbml: true,
+            version: 'v18.0'
+          });
+        }
+      };
+    </script>
+    <script async defer crossorigin="anonymous" src="https://connect.facebook.net/mn_MN/sdk.js"></script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
