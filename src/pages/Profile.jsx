@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { getCurrentUser, logout } from '@/services/auth';
-import { list as listCars } from '@/services/cars';
+import { list as listCars, remove as removeCar } from '@/services/cars';
 import { list as listFavorites } from '@/services/favorites';
 import { list as listMessages } from '@/services/messages';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { collection, query, where, getDocs } from 'firebase/firestore';
@@ -13,13 +13,15 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { User, Car, Heart, MessageSquare, LogOut, Plus, Star } from 'lucide-react';
+import { User, Car, Heart, MessageSquare, LogOut, Plus, Star, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import CarCard from '@/components/cars/CarCard.jsx';
 import VipUpgradeButton from '@/components/cars/VipUpgradeButton.jsx';
 
 export default function Profile() {
   const [activeTab, setActiveTab] = useState('my-cars');
-
+  const [deletingCarId, setDeletingCarId] = useState(null);
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
 
   const { data: user, isLoading: userLoading } = useQuery({
@@ -74,6 +76,30 @@ export default function Profile() {
     localStorage.removeItem('user');
     navigate('/');
     window.location.reload();
+  };
+
+  const deleteCarMutation = useMutation({
+    mutationFn: async (carId) => {
+      await removeCar(carId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['myCars', user?.email]);
+      queryClient.invalidateQueries(['cars']);
+      toast.success('Зар амжилттай устгагдлаа');
+      setDeletingCarId(null);
+    },
+    onError: (error) => {
+      toast.error('Зар устгахэд алдаа гарлаа: ' + error.message);
+      setDeletingCarId(null);
+    }
+  });
+
+  const handleDeleteCar = async (carId) => {
+    if (!window.confirm('Та энэ зарыг устгахдаа итгэлтэй байна уу? Энэ үйлдлийг буцаах боломжгүй.')) {
+      return;
+    }
+    setDeletingCarId(carId);
+    deleteCarMutation.mutate(carId);
   };
 
   if (userLoading) {
@@ -154,15 +180,27 @@ export default function Profile() {
                 {myCars.map((car, index) => (
                   <div key={car.id} className="space-y-2">
                     <CarCard car={car} index={index} />
-                    {car.status === 'approved' && !car.is_featured && (
-                      <VipUpgradeButton car={car} />
-                    )}
-                    {car.is_featured && (
-                      <div className="flex items-center justify-center gap-2 text-sm text-amber-600 font-medium">
-                        <Star className="w-4 h-4 fill-current" />
-                        VIP зар
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {car.status === 'approved' && !car.is_featured && (
+                        <VipUpgradeButton car={car} />
+                      )}
+                      {car.is_featured && (
+                        <div className="flex items-center justify-center gap-2 text-sm text-amber-600 font-medium flex-1">
+                          <Star className="w-4 h-4 fill-current" />
+                          VIP зар
+                        </div>
+                      )}
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => handleDeleteCar(car.id)}
+                        disabled={deletingCarId === car.id}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        {deletingCarId === car.id ? 'Устгаж байна...' : 'Устгах'}
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
