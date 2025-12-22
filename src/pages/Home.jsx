@@ -95,39 +95,47 @@ export default function Home() {
     return true;
   });
 
-  // Sort cars
-  const sortedCars = [...filteredCars].sort((a, b) => {
-    // Featured cars always first
-    if (a.is_featured && !b.is_featured) return -1;
-    if (!a.is_featured && b.is_featured) return 1;
+  // VIP зарууд (Урсдаг зар)
+  const featuredCars = filteredCars.filter(car => car.is_featured === true);
+  
+  // Бусад зарууд (VIP биш)
+  const regularCars = filteredCars.filter(car => !car.is_featured);
 
-    switch (sortBy) {
-      case '-created_date':
-        // Сүүлд нэмэгдсэн зарууд эхэнд (created_at эсвэл created_date ашиглах)
-        const aDate = a.created_at || a.created_date || '';
-        const bDate = b.created_at || b.created_date || '';
-        if (!aDate && !bDate) return 0;
-        if (!aDate) return 1; // aDate байхгүй бол сүүлд
-        if (!bDate) return -1; // bDate байхгүй бол сүүлд
-        return new Date(bDate) - new Date(aDate); // Шинэ нь эхэнд
-      case 'price_asc':
-        return a.price - b.price;
-      case 'price_desc':
-        return b.price - a.price;
-      case 'mileage_asc':
-        return (a.mileage || 0) - (b.mileage || 0);
-      case 'year_desc':
-        return b.year - a.year;
-      default:
-        // Default: сүүлд нэмэгдсэн зарууд эхэнд
-        const defaultADate = a.created_at || a.created_date || '';
-        const defaultBDate = b.created_at || b.created_date || '';
-        if (!defaultADate && !defaultBDate) return 0;
-        if (!defaultADate) return 1;
-        if (!defaultBDate) return -1;
-        return new Date(defaultBDate) - new Date(defaultADate);
-    }
-  });
+  // Sort cars
+  const sortCars = (cars) => {
+    return [...cars].sort((a, b) => {
+      switch (sortBy) {
+        case '-created_date':
+          // Сүүлд нэмэгдсэн зарууд эхэнд (created_at эсвэл created_date ашиглах)
+          const aDate = a.created_at || a.created_date || '';
+          const bDate = b.created_at || b.created_date || '';
+          if (!aDate && !bDate) return 0;
+          if (!aDate) return 1; // aDate байхгүй бол сүүлд
+          if (!bDate) return -1; // bDate байхгүй бол сүүлд
+          return new Date(bDate) - new Date(aDate); // Шинэ нь эхэнд
+        case 'price_asc':
+          return a.price - b.price;
+        case 'price_desc':
+          return b.price - a.price;
+        case 'mileage_asc':
+          return (a.mileage || 0) - (b.mileage || 0);
+        case 'year_desc':
+          return b.year - a.year;
+        default:
+          // Default: сүүлд нэмэгдсэн зарууд эхэнд
+          const defaultADate = a.created_at || a.created_date || '';
+          const defaultBDate = b.created_at || b.created_date || '';
+          if (!defaultADate && !defaultBDate) return 0;
+          if (!defaultADate) return 1;
+          if (!defaultBDate) return -1;
+          return new Date(defaultBDate) - new Date(defaultADate);
+      }
+    });
+  };
+
+  const sortedFeaturedCars = sortCars(featuredCars);
+  const sortedRegularCars = sortCars(regularCars);
+  const sortedCars = [...sortedFeaturedCars, ...sortedRegularCars]; // VIP зарууд эхэнд
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -141,13 +149,47 @@ export default function Home() {
           setShowAdvanced={setShowAdvanced}
         />
 
+        {/* Урсдаг зар (VIP зарууд) */}
+        {!isLoading && sortedFeaturedCars.length > 0 && (
+          <div className="mt-8 mb-12">
+            <div className="flex items-center gap-3 mb-6">
+              <TrendingUp className="w-6 h-6 text-blue-600" />
+              <h2 className="text-2xl font-bold text-gray-900">
+                Урсдаг зар
+              </h2>
+              <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                {sortedFeaturedCars.length}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {sortedFeaturedCars.map((car, index) => (
+                <div key={car.id} className="relative">
+                  <CarCard car={car} index={index} />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="absolute top-2 right-2 bg-white/90 backdrop-blur z-10"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggleCompare(car);
+                    }}
+                  >
+                    <Scale className={`w-4 h-4 ${compareCars.find(c => c.id === car.id) ? 'text-blue-600' : ''}`} />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Results Header */}
         <div className="flex items-center justify-between mt-8 mb-6">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">
-              Зарууд
+              Бүх зарууд
             </h2>
-            <p className="text-gray-500">{sortedCars.length} машин олдлоо</p>
+            <p className="text-gray-500">{sortedRegularCars.length} машин олдлоо</p>
           </div>
           
           <Select value={sortBy} onValueChange={setSortBy}>
@@ -165,7 +207,7 @@ export default function Home() {
           </Select>
         </div>
 
-        {/* Car Grid */}
+        {/* Car Grid - Бүх зарууд (VIP биш) */}
         {isLoading ? (
           <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {[...Array(8)].map((_, i) => (
@@ -179,9 +221,9 @@ export default function Home() {
               </div>
             ))}
           </div>
-        ) : sortedCars.length > 0 ? (
+        ) : sortedRegularCars.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {sortedCars.map((car, index) => (
+            {sortedRegularCars.map((car, index) => (
               <div key={car.id} className="relative">
                 <CarCard car={car} index={index} />
                 <Button
