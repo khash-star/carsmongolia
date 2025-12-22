@@ -373,9 +373,13 @@ export default function Admin() {
       await updateCar(carId, { is_featured: isVip });
     },
     onSuccess: (_, variables) => {
+      // Бүх query-уудыг шинэчлэх (Home хуудас дээрх query-г багтаасан)
       queryClient.invalidateQueries(['allCars']);
       queryClient.invalidateQueries(['pendingCars']);
-      queryClient.invalidateQueries(['cars']);
+      queryClient.invalidateQueries(['cars']); // Home хуудас дээрх query
+      queryClient.invalidateQueries(['cars', 'ADMIN']); // Admin-ийн query
+      queryClient.invalidateQueries(['latestCarsHero']); // HeroSection query
+      queryClient.invalidateQueries(['featuredCarsHero']); // Featured cars query
       toast.success(variables.isVip ? 'Зар VIP болгогдлоо!' : 'VIP арилгагдлаа!');
       setVipingCarId(null);
     },

@@ -71,8 +71,54 @@ export default function Home() {
     enabled: user !== undefined
   });
 
-  // Filter cars
+  // VIP зарууд (Урсдаг зар) - БҮХ VIP зарууд, ямар ч фильтерт хамаарахгүй
+  // is_featured === true эсвэл is_featured === 'true' эсвэл is_featured === 1
+  const featuredCars = cars.filter(car => {
+    // is_featured талбарыг бүх боломжит форматаар шалгах
+    const isFeatured = 
+      car.is_featured === true || 
+      car.is_featured === 'true' || 
+      car.is_featured === 1 ||
+      car.is_featured === '1' ||
+      String(car.is_featured).toLowerCase() === 'true';
+    
+    // VIP зарууд зөвхөн баталгаажсан байх ёстой (admin-д бүх зарууд харагдана)
+    if (user?.role === 'ADMIN') {
+      return isFeatured;
+    } else {
+      return isFeatured && car.status === 'approved';
+    }
+  });
+
+  // Debug: VIP заруудыг console дээр харах
+  if (process.env.NODE_ENV === 'development') {
+    console.log('VIP зарууд шалгах:', {
+      totalCars: cars.length,
+      featuredCars: featuredCars.length,
+      userRole: user?.role,
+      featuredCarsDetails: featuredCars.map(c => ({ 
+        id: c.id, 
+        title: c.title, 
+        is_featured: c.is_featured,
+        is_featured_type: typeof c.is_featured,
+        status: c.status 
+      })),
+      allCarsWithFeatured: cars.filter(c => c.is_featured).map(c => ({
+        id: c.id,
+        title: c.title,
+        is_featured: c.is_featured,
+        is_featured_type: typeof c.is_featured,
+        status: c.status
+      }))
+    });
+  }
+
+  // Filter cars (VIP биш зарууд)
   const filteredCars = cars.filter(car => {
+    // VIP заруудыг энд оруулахгүй (тэд featuredCars дээр байна)
+    const isFeatured = car.is_featured === true || car.is_featured === 'true' || car.is_featured === 1;
+    if (isFeatured) return false;
+    
     if (filters.search) {
       const search = filters.search.toLowerCase();
       const matchesSearch = 
@@ -94,16 +140,9 @@ export default function Home() {
     if (filters.maxYear && car.year > Number(filters.maxYear)) return false;
     return true;
   });
-
-  // VIP зарууд (Урсдаг зар) - is_featured === true эсвэл is_featured === 'true'
-  const featuredCars = filteredCars.filter(car => {
-    return car.is_featured === true || car.is_featured === 'true' || car.is_featured === 1;
-  });
   
-  // Бусад зарууд (VIP биш)
-  const regularCars = filteredCars.filter(car => {
-    return !(car.is_featured === true || car.is_featured === 'true' || car.is_featured === 1);
-  });
+  // Бусад зарууд (VIP биш) - filteredCars дээр байгаа зарууд
+  const regularCars = filteredCars;
 
   // Sort cars
   const sortCars = (cars) => {
@@ -167,8 +206,10 @@ export default function Home() {
             </div>
             {/* Debug info - remove in production */}
             {process.env.NODE_ENV === 'development' && (
-              <div className="text-xs text-gray-500 mb-2">
-                VIP зарууд: {sortedFeaturedCars.map(c => c.id).join(', ')}
+              <div className="text-xs text-gray-500 mb-2 space-y-1">
+                <div>VIP зарууд (ID): {sortedFeaturedCars.map(c => c.id).join(', ') || 'Байхгүй'}</div>
+                <div>VIP зарууд (Нийт): {featuredCars.length}, Эрэмбэлсэн: {sortedFeaturedCars.length}</div>
+                <div>Бүх зарууд: {cars.length}, VIP биш: {regularCars.length}</div>
               </div>
             )}
             <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
