@@ -266,10 +266,8 @@ export default function Login() {
                   </div>
                 </div>
 
-                <Button
+                <button
                   type="button"
-                  variant="outline"
-                  className="w-full h-12 border-blue-600 text-blue-600 hover:bg-blue-50"
                   onClick={async () => {
                     setIsLoading(true);
                     try {
@@ -302,10 +300,23 @@ export default function Login() {
                     }
                   }}
                   disabled={isLoading}
+                  className="w-full h-12 relative flex items-center justify-center rounded-md text-white font-medium shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  style={{
+                    background: 'linear-gradient(to bottom, #5B7FCC 0%, #3B5998 100%)',
+                    boxShadow: '0 2px 6px rgba(59, 89, 152, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2)'
+                  }}
                 >
-                  <i className="fab fa-facebook-f mr-2"></i>
-                  Facebook-ээр нэвтрэх
-                </Button>
+                  {/* Facebook лого - цагаан дөрвөлжин дотор */}
+                  <div className="absolute left-3 flex items-center justify-center w-8 h-8 bg-white rounded-md shadow-sm">
+                    <i className="fab fa-facebook-f text-[#3B5998] text-base leading-none"></i>
+                  </div>
+                  
+                  {/* Текст */}
+                  <span className="text-sm tracking-wide">
+                    <span className="font-normal">Login with </span>
+                    <span className="font-semibold">facebook</span>
+                  </span>
+                </button>
               </form>
               
               {/* Reset Password Dialog */}
