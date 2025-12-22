@@ -338,16 +338,14 @@ export default function Admin() {
 
   // Бүх зарууд засах
   const handleEditCar = (carId) => {
-    setEditingCarId(carId);
-    // Edit modal эсвэл edit page руу шилжих
-    // Одоогоор зөвхөн ID хадгална
+    // AddCar хуудас руу edit mode-оор шилжих
+    window.location.href = createPageUrl(`AddCar?edit=${carId}`);
   };
 
   // Бүх бизнесүүд засах
   const handleEditBusiness = (businessId) => {
-    setEditingBusinessId(businessId);
-    // Edit modal эсвэл edit page руу шилжих
-    // Одоогоор зөвхөн ID хадгална
+    // AddBusiness хуудас руу edit mode-оор шилжих
+    window.location.href = createPageUrl(`AddBusiness?edit=${businessId}`);
   };
 
   // Бүх зарууд устгах

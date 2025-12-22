@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getCurrentUser } from '@/services/auth';
-import { create as createCar } from '@/services/cars';
+import { create as createCar, getById as getCarById } from '@/services/cars';
 import { uploadFiles } from '@/services/storage';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -28,6 +28,10 @@ const LOCATIONS = ['ulaanbaatar', 'darkhan', 'erdenet', 'choibalsan', 'murun', '
 
 export default function AddCar() {
   const navigate = useNavigate();
+  const urlParams = new URLSearchParams(window.location.search);
+  const editCarId = urlParams.get('edit');
+  const isEditMode = !!editCarId;
+
   const { data: user, isLoading } = useQuery({
     queryKey: ['currentUser'],
     queryFn: async () => {
@@ -42,6 +46,13 @@ export default function AddCar() {
       return await getCurrentUser();
     },
     retry: false,
+  });
+
+  // Edit mode-д зарын мэдээллийг татах
+  const { data: existingCar, isLoading: isLoadingCar } = useQuery({
+    queryKey: ['car', editCarId],
+    queryFn: () => getCarById(editCarId),
+    enabled: isEditMode && !!editCarId,
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -75,6 +86,36 @@ export default function AddCar() {
   });
 
   const [newFeature, setNewFeature] = useState('');
+
+  // Edit mode-д зарын мэдээллийг form-д бөглөх
+  useEffect(() => {
+    if (isEditMode && existingCar) {
+      setFormData({
+        title: existingCar.title || '',
+        make: existingCar.make || '',
+        model: existingCar.model || '',
+        year: existingCar.year || new Date().getFullYear(),
+        price: existingCar.price || '',
+        mileage: existingCar.mileage || '',
+        has_license_plate: existingCar.has_license_plate || false,
+        fuel_type: existingCar.fuel_type || 'gasoline',
+        transmission: existingCar.transmission || 'automatic',
+        body_type: existingCar.body_type || 'sedan',
+        engine_capacity: existingCar.engine_capacity || '',
+        drive_type: existingCar.drive_type || 'fwd',
+        origin_country: existingCar.origin_country || 'korea',
+        exterior_color: existingCar.exterior_color || '',
+        interior_color: existingCar.interior_color || '',
+        description: existingCar.description || '',
+        images: existingCar.images || [],
+        features: existingCar.features || [],
+        location: existingCar.location || 'ulaanbaatar',
+        contact_phone: existingCar.contact_phone || '',
+        contact_whatsapp: existingCar.contact_whatsapp || ''
+      });
+      setCreatedCarId(existingCar.id);
+    }
+  }, [isEditMode, existingCar]);
 
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
@@ -208,21 +249,32 @@ export default function AddCar() {
         price: Number(formData.price),
         mileage: formData.mileage ? Number(formData.mileage) : 0,
         engine_capacity: formData.engine_capacity ? Number(formData.engine_capacity) : 0,
-        status: 'pending',
-        created_at: new Date().toISOString(),
-        created_by: user.email,
-        view_count: 0
       };
 
-      console.log('Creating car with data:', carData);
-
-      const result = await createCar(carData);
-
-      console.log('Car created successfully:', result);
-      
-      setCreatedCarId(result.id);
-      setIsSuccess(true);
-      toast.success('Зар амжилттай нэмэгдлээ!');
+      if (isEditMode && editCarId) {
+        // Edit mode - зарыг шинэчлэх
+        console.log('Updating car with data:', carData);
+        await updateCar(editCarId, carData);
+        console.log('Car updated successfully');
+        setCreatedCarId(editCarId);
+        setIsSuccess(true);
+        toast.success('Зар амжилттай шинэчлэгдлээ!');
+      } else {
+        // Create mode - шинэ зар нэмэх
+        const newCarData = {
+          ...carData,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+          created_by: user.email,
+          view_count: 0
+        };
+        console.log('Creating car with data:', newCarData);
+        const result = await createCar(newCarData);
+        console.log('Car created successfully:', result);
+        setCreatedCarId(result.id);
+        setIsSuccess(true);
+        toast.success('Зар амжилттай нэмэгдлээ!');
+      }
     } catch (error) {
       console.error('Error adding car details:', {
         error,
@@ -246,7 +298,7 @@ export default function AddCar() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || (isEditMode && isLoadingCar)) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-4xl mx-auto px-4">
@@ -321,7 +373,7 @@ export default function AddCar() {
               <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center">
                 <Car className="w-6 h-6 text-white" />
               </div>
-              Машины зар нэмэх
+              {isEditMode ? 'Машины зар засах' : 'Машины зар нэмэх'}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -642,7 +694,7 @@ export default function AddCar() {
 
               <Button type="submit" disabled={isSubmitting} className="w-full h-12 bg-blue-600 hover:bg-blue-700">
                 {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : null}
-                Зар нэмэх
+                {isEditMode ? 'Зар шинэчлэх' : 'Зар нэмэх'}
               </Button>
             </form>
           </CardContent>
