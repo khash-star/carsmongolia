@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Car, Briefcase, Check, X, Eye, ShieldCheck, Download, Upload, FileJson, Database, TrendingUp, Loader2, FileSpreadsheet, Copy, Link as LinkIcon, Trash2, Edit } from 'lucide-react';
+import { Car, Briefcase, Check, X, Eye, ShieldCheck, Download, Upload, FileJson, Database, TrendingUp, Loader2, FileSpreadsheet, Copy, Link as LinkIcon, Trash2, Edit, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
@@ -31,6 +31,7 @@ export default function Admin() {
   const [editingBusinessId, setEditingBusinessId] = useState(null);
   const [deletingCarId, setDeletingCarId] = useState(null);
   const [deletingBusinessId, setDeletingBusinessId] = useState(null);
+  const [vipingCarId, setVipingCarId] = useState(null);
   const queryClient = useQueryClient();
 
   const { data: user, isLoading: userLoading } = useQuery({
@@ -364,6 +365,30 @@ export default function Admin() {
     }
     setDeletingBusinessId(businessId);
     deleteBusinessMutation.mutate(businessId);
+  };
+
+  // Бүх зарууд VIP болгох
+  const vipCarMutation = useMutation({
+    mutationFn: async (carId) => {
+      await updateCar(carId, { is_featured: true });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['allCars']);
+      queryClient.invalidateQueries(['pendingCars']);
+      queryClient.invalidateQueries(['cars']);
+      toast.success('Зар VIP болгогдлоо!');
+      setVipingCarId(null);
+    },
+    onError: (error) => {
+      toast.error('VIP болгоход алдаа гарлаа: ' + error.message);
+      setVipingCarId(null);
+    }
+  });
+
+  // Бүх зарууд VIP болгох handler
+  const handleVipCar = async (carId) => {
+    setVipingCarId(carId);
+    vipCarMutation.mutate(carId);
   };
 
   const exportCarsToFile = async () => {
@@ -1256,13 +1281,31 @@ export default function Admin() {
                           <p className="text-xl font-bold text-blue-600 mb-3">
                             {new Intl.NumberFormat('mn-MN').format(car.price)}₮
                           </p>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <Link to={createPageUrl(`CarDetails?id=${car.id}`)}>
                               <Button size="sm" variant="outline">
                                 <Eye className="w-4 h-4 mr-2" />
                                 Үзэх
                               </Button>
                             </Link>
+                            {car.status === 'approved' && !car.is_featured && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-amber-500 text-amber-600 hover:bg-amber-50"
+                                onClick={() => handleVipCar(car.id)}
+                                disabled={vipingCarId === car.id}
+                              >
+                                <Star className="w-4 h-4 mr-2" />
+                                {vipingCarId === car.id ? 'VIP болгож байна...' : 'VIP болгох'}
+                              </Button>
+                            )}
+                            {car.is_featured && (
+                              <Badge className="bg-amber-500 text-white">
+                                <Star className="w-3 h-3 mr-1 fill-current" />
+                                VIP
+                              </Badge>
+                            )}
                             <Button
                               size="sm"
                               variant="outline"
