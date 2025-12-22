@@ -5,7 +5,7 @@ import { createPageUrl } from '@/utils';
 import { getCurrentUser, logout } from '@/services/auth';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Car, Menu, X, LogIn, LogOut, User } from 'lucide-react';
+import { Menu, X, LogIn, LogOut, User } from 'lucide-react';
 import InstallPrompt from '@/components/pwa/InstallPrompt.jsx';
 
 export default function Layout({ children, currentPageName }) {
@@ -53,10 +53,12 @@ export default function Layout({ children, currentPageName }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <Link to={createPageUrl('Home')} className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
-                <Car className="w-6 h-6 text-white" />
-              </div>
+            <Link to={createPageUrl('Home')} className="flex items-center gap-3">
+              <img
+                src="/hashi-logo.png"
+                alt="HASH Co Ltd Logo"
+                className="w-14 h-14 object-contain"
+              />
               <span className="text-xl font-bold text-gray-900">AutoZar</span>
             </Link>
 
@@ -176,6 +178,16 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Main Content */}
       <main>{children}</main>
+
+      {/* Footer */}
+      <footer className="border-t bg-white mt-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs sm:text-sm text-gray-500">
+          <span>© 2024 HASH Co Ltd. All rights reserved.</span>
+          <span className="text-[11px] sm:text-xs text-gray-400">
+            Авто зарын платформ – carsmongolia.mn
+          </span>
+        </div>
+      </footer>
     </div>
   );
 }
