@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getCurrentUser } from '@/services/auth';
 import { list as listCars } from '@/services/cars';
 import { useQuery } from '@tanstack/react-query';
@@ -9,7 +9,7 @@ import CompareDrawer from '@/components/cars/CompareDrawer.jsx';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Car, TrendingUp, Scale } from 'lucide-react';
+import { Car, TrendingUp, Scale, ArrowUp } from 'lucide-react';
 
 export default function Home() {
   const [filters, setFilters] = useState({
@@ -26,6 +26,17 @@ export default function Home() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [sortBy, setSortBy] = useState('-created_date');
   const [compareCars, setCompareCars] = useState([]);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  // Нүүрэн дээр доош гүйлгэхэд дээд хэсэг рүү буцах товч харуулах
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 300);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const toggleCompare = (car) => {
     setCompareCars(prev => {
@@ -302,6 +313,17 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* Нүүрний доод голд scroll-to-top товч */}
+      {showScrollTop && (
+        <button
+          type="button"
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center justify-center w-12 h-12 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg transition-transform hover:scale-105"
+        >
+          <ArrowUp className="w-5 h-5" />
+        </button>
+      )}
     </div>
   );
 }
