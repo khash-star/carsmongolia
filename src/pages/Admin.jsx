@@ -181,6 +181,24 @@ export default function Admin() {
     }
   });
 
+  // VIP зарууд (is_featured === true)
+  const { data: vipCars = [], isLoading: vipCarsLoading } = useQuery({
+    queryKey: ['vipCars'],
+    queryFn: async () => {
+      const allCars = await listCars({});
+      // VIP заруудыг шүүх (is_featured === true эсвэл 'true' эсвэл 1)
+      return allCars.filter(car => {
+        const isFeatured = 
+          car.is_featured === true || 
+          car.is_featured === 'true' || 
+          car.is_featured === 1 ||
+          car.is_featured === '1' ||
+          String(car.is_featured).toLowerCase() === 'true';
+        return isFeatured;
+      });
+    }
+  });
+
   // Тогтмол каталогийн линк ачаалах
   const { data: catalogConfig } = useQuery({
     queryKey: ['catalogConfig'],
@@ -370,8 +388,9 @@ export default function Admin() {
 
   // Бүх зарууд засах
   const handleEditCar = (carId) => {
-    // AddCar хуудас руу edit mode-оор шилжих, буцахад "Бүх зар" талбар руу буцах
-    window.location.href = createPageUrl(`AddCar?edit=${carId}&returnTo=all-cars`);
+    // AddCar хуудас руу edit mode-оор шилжих, буцахад одоогийн талбар руу буцах
+    const returnTo = activeTab || 'all-cars';
+    window.location.href = createPageUrl(`AddCar?edit=${carId}&returnTo=${returnTo}`);
   };
 
   // Бүх бизнесүүд засах
@@ -406,6 +425,7 @@ export default function Admin() {
     onSuccess: (_, variables) => {
       // Бүх query-уудыг шинэчлэх (Home хуудас дээрх query-г багтаасан)
       queryClient.invalidateQueries(['allCars']);
+      queryClient.invalidateQueries(['vipCars']); // VIP зарууд query
       queryClient.invalidateQueries(['pendingCars']);
       queryClient.invalidateQueries(['cars']); // Home хуудас дээрх query
       queryClient.invalidateQueries(['cars', 'ADMIN']); // Admin-ийн query
@@ -643,6 +663,299 @@ export default function Admin() {
       event.target.value = '';
     } catch (error) {
       toast.error('Excel импорт хийхэд алдаа гарлаа: ' + error.message);
+    }
+    setIsImporting(false);
+  };
+
+  const importCarsFromCSV = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      // XLSX сан нь CSV файлыг ч уншиж чадна
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const csvData = XLSX.utils.sheet_to_json(worksheet);
+
+      if (!Array.isArray(csvData) || csvData.length === 0) {
+        throw new Error('CSV файл хоосон эсвэл формат буруу байна');
+      }
+
+      // Debug: Баганы нэрийг хэвлэх
+      if (csvData.length > 0) {
+        console.log('CSV баганы нэрүүд:', Object.keys(csvData[0]));
+        console.log('Эхний мөр:', csvData[0]);
+      }
+
+      let imported = 0;
+      let skipped = 0;
+
+      for (const row of csvData) {
+        try {
+          // CSV баганауудыг машин зарын талбаруудтай холбох
+          // Шинэ формат: model, year, mileage_kr, fuel, price_krw, image_link, image_linkonal_image_link
+          // Хуучин формат: title, price_krw, cover_image_url, images_sample (pipe-separated)
+          
+          // Зургуудыг боловсруулах (comma эсвэл pipe-separated URLs)
+          let images = [];
+          
+          // image_link-г нүүрний зураг (эхний зураг) болгох
+          if (row['image_link']) {
+            const coverImage = String(row['image_link']).trim();
+            if (coverImage && (coverImage.startsWith('http') || coverImage.startsWith('https'))) {
+              images.push(coverImage);
+              console.log('Added cover image from image_link:', coverImage.substring(0, 50));
+            }
+          }
+          
+          // additional_image_link-г нэмэлт зургууд болгох
+          const rowKeys = Object.keys(row);
+          const additionalImageKey = rowKeys.find(key => 
+            key.toLowerCase() === 'additional_image_link' ||
+            key.toLowerCase().includes('additional_image')
+          );
+          
+          if (additionalImageKey) {
+            const additionalImagesStr = String(row[additionalImageKey] || '').trim();
+            if (additionalImagesStr) {
+              console.log('Found additional_image_link:', additionalImageKey, 'Value length:', additionalImagesStr.length);
+              
+              // Comma эсвэл pipe-separated URLs-г массив болгох
+              const separator = additionalImagesStr.includes('|') ? '|' : ',';
+              const rawImages = additionalImagesStr.split(separator);
+              console.log('Split into', rawImages.length, 'parts');
+              
+              const additionalImages = rawImages
+                .map(url => url.trim())
+                .filter(url => {
+                  const isValid = url && (url.startsWith('http') || url.startsWith('https'));
+                  if (!isValid && url) {
+                    console.log('Filtered out invalid URL:', url.substring(0, 50));
+                  }
+                  return isValid;
+                });
+              
+              // Нэмэлт зургуудыг нэмэх (нүүрний зургийн дараа)
+              images = [...images, ...additionalImages];
+              console.log('Final images count:', images.length);
+            }
+          } else if (row['image_linkonal_image_link']) {
+            // Хуучин формат: image_linkonal_image_link
+            const imageLinkValue = String(row['image_linkonal_image_link'] || '').trim();
+            if (imageLinkValue) {
+              const separator = imageLinkValue.includes('|') ? '|' : ',';
+              const additionalImages = imageLinkValue
+                .split(separator)
+                .map(url => url.trim())
+                .filter(url => url && (url.startsWith('http') || url.startsWith('https')));
+              
+              // Хэрэв нүүрний зураг байхгүй бол эхний зургийг нүүрний зураг болгох
+              if (images.length === 0 && additionalImages.length > 0) {
+                images.push(additionalImages[0]);
+                if (additionalImages.length > 1) {
+                  images = [...images, ...additionalImages.slice(1)];
+                }
+              } else {
+                images = [...images, ...additionalImages];
+              }
+            }
+          }
+          
+          // Хуучин формат: images_sample (pipe-separated)
+          if (images.length === 0 && row['images_sample']) {
+            images = String(row['images_sample'])
+              .split('|')
+              .map(url => url.trim())
+              .filter(url => url && url.startsWith('http'));
+          }
+          
+          // cover_image_url-г эхний зураг болгох (хэрэв images_sample байхгүй бол)
+          if (images.length === 0 && row['cover_image_url']) {
+            const coverUrl = String(row['cover_image_url']).trim();
+            if (coverUrl && coverUrl.startsWith('http')) {
+              images.push(coverUrl);
+            }
+          }
+
+          // Үнэг боловсруулах (Korean Won-г төгрөг рүү хөрвүүлэх)
+          let price = null;
+          if (row['price_krw']) {
+            const priceValue = parseFloat(String(row['price_krw']).replace(/[^0-9.-]/g, ''));
+            if (!isNaN(priceValue) && priceValue > 0) {
+              // Korean Won-г төгрөг рүү хөрвүүлэх (1 KRW ≈ 1.5 MNT)
+              price = Math.round(priceValue * 1.5);
+            }
+          }
+
+          // Гүйлт боловсруулах (mileage_km, mileage_kr, эсвэл mileage)
+          let mileage = null;
+          const mileageValue = row['mileage_km'] || row['mileage_kr'] || row['mileage'] || row['mileage_km'];
+          if (mileageValue !== undefined && mileageValue !== null && mileageValue !== '') {
+            const mileageNum = parseFloat(String(mileageValue).replace(/[^0-9.-]/g, ''));
+            if (!isNaN(mileageNum) && mileageNum >= 0) {
+              mileage = Math.round(mileageNum);
+            }
+          }
+
+          // Түлшний төрөл боловсруулах (fuel)
+          let fuel_type = 'gasoline';
+          if (row['fuel']) {
+            const fuelStr = String(row['fuel']).toLowerCase();
+            if (fuelStr.includes('gasoline') || fuelStr.includes('бензин')) {
+              fuel_type = 'gasoline';
+            } else if (fuelStr.includes('diesel') || fuelStr.includes('дизель')) {
+              fuel_type = 'diesel';
+            } else if (fuelStr.includes('hybrid')) {
+              fuel_type = 'hybrid';
+            } else if (fuelStr.includes('electric')) {
+              fuel_type = 'electric';
+            } else if (fuelStr.includes('lpg')) {
+              fuel_type = 'lpg';
+            }
+          }
+
+          // Он боловсруулах (year)
+          let year = null;
+          if (row['year']) {
+            const yearValue = parseInt(String(row['year']));
+            if (!isNaN(yearValue) && yearValue >= 1900 && yearValue <= new Date().getFullYear() + 1) {
+              year = yearValue;
+            }
+          }
+
+          // Загвар, марк, гарчиг боловсруулах
+          let modelStr = String(row['model'] || '').trim();
+          
+          // "Encar - Dream Car Platform Encar" гэх текстийг арилгах
+          modelStr = modelStr
+            .replace(/:\s*Encar\s*-\s*Dream\s*Car\s*Platform\s*Encar/gi, '')
+            .replace(/Encar\s*-\s*Dream\s*Car\s*Platform\s*Encar/gi, '')
+            .replace(/\s*:\s*Encar.*$/gi, '')
+            .trim();
+          
+          let make = '';
+          let model = '';
+          let title = '';
+
+          // Model-аас марк, загварыг олж авах
+          if (modelStr) {
+            const makes = [
+              'Toyota', 'Honda', 'Lexus', 'BMW', 'Mercedes-Benz', 'Mercedes', 'Audi', 
+              'Hyundai', 'Kia', 'Nissan', 'Mazda', 'Ford', 'Chevrolet', 'Volkswagen', 
+              'Subaru', 'Mitsubishi', 'Suzuki', 'Jeep', 'Wrangler', 'Tiguan', 'Cooper', 
+              'Mini', 'MKZ', 'Lincoln', 'S-Class', 'GLC-Class', 'C-Class', 'XC90', 
+              'Volvo', 'Bentley', 'Flying Spur', '5 Series'
+            ];
+            
+            for (const m of makes) {
+              if (modelStr.toLowerCase().includes(m.toLowerCase())) {
+                make = m;
+                // Загварыг model-аас олох
+                const modelParts = modelStr.split(' ');
+                const makeIndex = modelParts.findIndex(part => part.toLowerCase().includes(m.toLowerCase()));
+                if (makeIndex >= 0 && makeIndex < modelParts.length - 1) {
+                  model = modelParts.slice(makeIndex + 1).join(' ').substring(0, 50);
+                } else {
+                  model = modelStr.substring(0, 50);
+                }
+                break;
+              }
+            }
+            
+            // Хэрэв марк олдохгүй бол model-г бүхэлд нь ашиглах
+            if (!make) {
+              model = modelStr.substring(0, 50);
+            }
+            
+            // Гарчиг үүсгэх
+            title = year ? `${year} ${modelStr}` : modelStr;
+          }
+
+          // Хуучин формат: title багана байвал ашиглах
+          if (row['title']) {
+            let titleStr = String(row['title']).trim();
+            
+            // "Encar - Dream Car Platform Encar" гэх текстийг арилгах
+            titleStr = titleStr
+              .replace(/:\s*Encar\s*-\s*Dream\s*Car\s*Platform\s*Encar/gi, '')
+              .replace(/Encar\s*-\s*Dream\s*Car\s*Platform\s*Encar/gi, '')
+              .replace(/\s*:\s*Encar.*$/gi, '')
+              .trim();
+            
+            title = titleStr;
+            
+            // Title-аас марк, загварыг олж авах
+            if (title && !make) {
+              const makes = ['Toyota', 'Honda', 'Lexus', 'BMW', 'Mercedes-Benz', 'Audi', 'Hyundai', 'Kia', 'Nissan', 'Mazda', 'Ford', 'Chevrolet', 'Volkswagen', 'Subaru', 'Mitsubishi', 'Suzuki', 'Jeep', 'Wrangler', 'Tiguan', 'Cooper', 'MKZ', 'S-Class', 'GLC-Class', 'C-Class', 'XC90'];
+              for (const m of makes) {
+                if (title.toLowerCase().includes(m.toLowerCase())) {
+                  make = m;
+                  break;
+                }
+              }
+            }
+          }
+
+          // Машин зарын өгөгдөл үүсгэх
+          const carData = {
+            title: title || 'Зар',
+            make: make || '',
+            model: model || '',
+            year: year || new Date().getFullYear(),
+            price: price || 0,
+            mileage: mileage || null,
+            has_license_plate: false,
+            fuel_type: fuel_type,
+            transmission: 'automatic',
+            body_type: 'sedan',
+            engine_capacity: null,
+            drive_type: 'fwd',
+            origin_country: 'korea',
+            exterior_color: '',
+            interior_color: '',
+            description: title || '',
+            images: images,
+            features: [],
+            location: 'ulaanbaatar',
+            contact_phone: '',
+            contact_whatsapp: '',
+            status: user?.role === 'ADMIN' ? 'approved' : 'pending',
+            view_count: 0,
+            created_at: new Date().toISOString(),
+            created_by: user?.email || '',
+          };
+
+          // Хэрэв title эсвэл model байхгүй бол алгасах
+          if ((!carData.title || carData.title === 'Зар') && !modelStr) {
+            skipped++;
+            continue;
+          }
+
+          await addDoc(collection(db, 'cars'), carData);
+          imported++;
+        } catch (rowError) {
+          console.error('Error importing row:', rowError, row);
+          skipped++;
+        }
+      }
+
+      queryClient.invalidateQueries(['pendingCars']);
+      queryClient.invalidateQueries(['cars']);
+      queryClient.invalidateQueries(['allCars']);
+      
+      if (skipped > 0) {
+        toast.success(`${imported} зар импорт хийгдлээ, ${skipped} мөр алгасагдлаа`);
+      } else {
+        toast.success(`${imported} зар CSV файлаас амжилттай импорт хийгдлээ`);
+      }
+      
+      event.target.value = '';
+    } catch (error) {
+      console.error('CSV import error:', error);
+      toast.error('CSV импорт хийхэд алдаа гарлаа: ' + error.message);
     }
     setIsImporting(false);
   };
@@ -1052,6 +1365,19 @@ export default function Admin() {
                   />
                 </label>
               </Button>
+              <Button asChild variant="outline" className="gap-2 bg-blue-50" size="sm">
+                <label className="cursor-pointer">
+                  <Upload className="w-4 h-4" />
+                  Зарууд (CSV)
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={importCarsFromCSV}
+                    className="hidden"
+                    disabled={isImporting}
+                  />
+                </label>
+              </Button>
               <Button onClick={exportBusinessesToFile} disabled={isExporting} variant="outline" className="gap-2 bg-green-50" size="sm">
                 <FileJson className="w-4 h-4" />
                 Бизнес (JSON)
@@ -1091,7 +1417,7 @@ export default function Admin() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
             <TabsTrigger value="cars" className="gap-2">
               <Car className="w-4 h-4" />
               Машины зарууд ({pendingCars.length})
@@ -1107,6 +1433,10 @@ export default function Admin() {
             <TabsTrigger value="all-businesses" className="gap-2">
               <Briefcase className="w-4 h-4" />
               Бүх Бизнес ({allBusinesses.length})
+            </TabsTrigger>
+            <TabsTrigger value="vip-cars" className="gap-2">
+              <Star className="w-4 h-4" />
+              VIP зарууд ({vipCars.length})
             </TabsTrigger>
             <TabsTrigger value="catalog" className="gap-2">
               <FileSpreadsheet className="w-4 h-4" />
@@ -1475,6 +1805,95 @@ export default function Admin() {
                 <CardContent className="p-12 text-center">
                   <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                   <p className="text-gray-500">Бизнес байхгүй байна</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* VIP зарууд */}
+          <TabsContent value="vip-cars" className="space-y-4">
+            {vipCarsLoading ? (
+              <div className="space-y-4">
+                {[...Array(3)].map((_, i) => (
+                  <Skeleton key={i} className="h-32 rounded-xl" />
+                ))}
+              </div>
+            ) : vipCars.length > 0 ? (
+              <div className="space-y-4">
+                {vipCars.map((car) => (
+                  <Card key={car.id} className="border-0 shadow-sm">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-4">
+                        <div className="w-32 h-24 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                          {car.images?.[0] ? (
+                            <img src={car.images[0]} alt={car.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Car className="w-8 h-8 text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <h3 className="font-semibold text-lg">{car.title}</h3>
+                              <p className="text-gray-500 text-sm">{car.make} {car.model} • {car.year}</p>
+                            </div>
+                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                              <Star className="w-3 h-3 mr-1 fill-current" />
+                              VIP
+                            </Badge>
+                          </div>
+                          <p className="text-xl font-bold text-blue-600 mb-3">
+                            {new Intl.NumberFormat('mn-MN').format(car.price)}₮
+                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Link to={createPageUrl(`CarDetails?id=${car.id}&returnTo=vip-cars`)}>
+                              <Button size="sm" variant="outline">
+                                <Eye className="w-4 h-4 mr-2" />
+                                Үзэх
+                              </Button>
+                            </Link>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-red-500 text-red-600 hover:bg-red-50"
+                              onClick={() => handleVipCar(car.id, false)}
+                              disabled={vipingCarId === car.id}
+                            >
+                              <Star className="w-4 h-4 mr-2 fill-current" />
+                              {vipingCarId === car.id ? 'VIP арилгаж байна...' : 'VIP арилгах'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEditCar(car.id)}
+                              disabled={editingCarId === car.id}
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              {editingCarId === car.id ? 'Засаж байна...' : 'Засах'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleDeleteCar(car.id)}
+                              disabled={deletingCarId === car.id}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              {deletingCarId === car.id ? 'Устгаж байна...' : 'Устгах'}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card className="border-0 shadow-sm">
+                <CardContent className="p-12 text-center">
+                  <Star className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500">VIP зар байхгүй байна</p>
                 </CardContent>
               </Card>
             )}
