@@ -1435,7 +1435,8 @@ export default function Admin() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8 lg:w-auto lg:inline-grid">
+          <div className="overflow-x-auto -mx-4 px-4 lg:mx-0 lg:px-0">
+            <TabsList className="inline-flex w-auto min-w-full lg:w-auto lg:inline-grid lg:grid-cols-8">
             <TabsTrigger value="cars" className="gap-2">
               <Car className="w-4 h-4" />
               Машины зарууд ({pendingCars.length})
@@ -1456,6 +1457,10 @@ export default function Admin() {
               <Star className="w-4 h-4" />
               VIP зарууд ({vipCars.length})
             </TabsTrigger>
+            <TabsTrigger value="messages" className="gap-2">
+              <MessageSquare className="w-4 h-4" />
+              Мессеж ({messages.filter(m => !m.is_read).length})
+            </TabsTrigger>
             <TabsTrigger value="catalog" className="gap-2">
               <FileSpreadsheet className="w-4 h-4" />
               Facebook Каталог
@@ -1465,6 +1470,7 @@ export default function Admin() {
               Статистик
             </TabsTrigger>
           </TabsList>
+          </div>
 
           {/* Pending Cars */}
           <TabsContent value="cars" className="space-y-4">
