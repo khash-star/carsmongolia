@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getCurrentUser, setUserRole } from '@/services/auth';
 import { list as listCars, update as updateCar, remove as removeCar } from '@/services/cars';
 import { list as listBusinesses, update as updateBusiness, remove as removeBusiness } from '@/services/businesses';
+import { list as listMessages, markAsRead } from '@/services/messages';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -13,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Car, Briefcase, Check, X, Eye, ShieldCheck, Download, Upload, FileJson, Database, TrendingUp, Loader2, FileSpreadsheet, Copy, Link as LinkIcon, Trash2, Edit, Star, ArrowUp } from 'lucide-react';
+import { Car, Briefcase, Check, X, Eye, ShieldCheck, Download, Upload, FileJson, Database, TrendingUp, Loader2, FileSpreadsheet, Copy, Link as LinkIcon, Trash2, Edit, Star, ArrowUp, MessageSquare, User } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
@@ -196,6 +197,23 @@ export default function Admin() {
           String(car.is_featured).toLowerCase() === 'true';
         return isFeatured;
       });
+    }
+  });
+
+  // Админ руу ирсэн мессежүүд
+  const { data: messages = [], isLoading: messagesLoading } = useQuery({
+    queryKey: ['adminMessages', user?.email],
+    queryFn: () => listMessages({ receiver_email: user?.email, orderBy: '-created_date' }),
+    enabled: !!user?.email
+  });
+
+  // Мессеж уншсан гэж тэмдэглэх
+  const markMessageAsReadMutation = useMutation({
+    mutationFn: async (messageId) => {
+      await markAsRead(messageId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['adminMessages', user?.email]);
     }
   });
 
@@ -1417,7 +1435,7 @@ export default function Admin() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-8 lg:w-auto lg:inline-grid">
             <TabsTrigger value="cars" className="gap-2">
               <Car className="w-4 h-4" />
               Машины зарууд ({pendingCars.length})
@@ -1907,6 +1925,63 @@ export default function Admin() {
                 <CardContent className="p-12 text-center">
                   <Star className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                   <p className="text-gray-500">VIP зар байхгүй байна</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Messages */}
+          <TabsContent value="messages" className="space-y-6">
+            <h2 className="text-xl font-semibold">Мессежүүд</h2>
+
+            {messagesLoading ? (
+              <div className="space-y-4">
+                {[...Array(3)].map((_, i) => (
+                  <Skeleton key={i} className="h-24 rounded-xl" />
+                ))}
+              </div>
+            ) : messages.length > 0 ? (
+              <div className="space-y-4">
+                {messages.map((message) => (
+                  <Card 
+                    key={message.id} 
+                    className={`border-0 shadow-sm cursor-pointer transition-colors ${!message.is_read ? 'bg-blue-50 hover:bg-blue-100' : 'hover:bg-gray-50'}`}
+                    onClick={() => {
+                      if (!message.is_read) {
+                        markMessageAsReadMutation.mutate(message.id);
+                      }
+                    }}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                            <User className="w-4 h-4 text-gray-600" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-sm">{message.sender_email}</p>
+                            <p className="text-xs text-gray-500">{new Date(message.created_date).toLocaleDateString('mn-MN')}</p>
+                            {message.car_id && (
+                              <Link to={createPageUrl(`CarDetails?id=${message.car_id}`)} className="text-xs text-blue-600 hover:underline">
+                                Зарыг харах →
+                              </Link>
+                            )}
+                          </div>
+                        </div>
+                        {!message.is_read && (
+                          <Badge className="bg-blue-600">Шинэ</Badge>
+                        )}
+                      </div>
+                      <p className="text-gray-700 whitespace-pre-wrap">{message.content}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card className="border-0 shadow-sm">
+                <CardContent className="p-12 text-center">
+                  <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500">Танд мессеж байхгүй байна</p>
                 </CardContent>
               </Card>
             )}
