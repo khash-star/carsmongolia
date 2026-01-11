@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { getCurrentUser, logout } from '@/services/auth';
 import { list as listCars, remove as removeCar } from '@/services/cars';
 import { list as listFavorites } from '@/services/favorites';
-import { list as listMessages } from '@/services/messages';
+import { list as listMessages, create as createMessage } from '@/services/messages';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -13,6 +13,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { User, Car, Heart, MessageSquare, LogOut, Plus, Star, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import CarCard from '@/components/cars/CarCard.jsx';
@@ -21,6 +24,10 @@ import VipUpgradeButton from '@/components/cars/VipUpgradeButton.jsx';
 export default function Profile() {
   const [activeTab, setActiveTab] = useState('my-cars');
   const [deletingCarId, setDeletingCarId] = useState(null);
+  const [sendingMessageCarId, setSendingMessageCarId] = useState(null);
+  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+  const [selectedCar, setSelectedCar] = useState(null);
+  const [messageContent, setMessageContent] = useState('');
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -100,6 +107,57 @@ export default function Profile() {
     }
     setDeletingCarId(carId);
     deleteCarMutation.mutate(carId);
+  };
+
+  // Get admin email
+  const getAdminEmail = async () => {
+    // Use fallback admin email to avoid Firestore permission issues
+    // If you need to dynamically fetch admin email, add users collection read permission in Firestore rules
+    return 'khashpay@gmail.com';
+  };
+
+  // Open message dialog
+  const handleOpenMessageDialog = (car) => {
+    setSelectedCar(car);
+    const defaultContent = `Миний зарын талаар: ${car.title || car.make || ''} ${car.model || ''} (${car.year || ''})\nЗар ID: ${car.id}\n\nХолбогдох утас: ${car.contact_phone || 'Оруулаагүй'}`;
+    setMessageContent(defaultContent);
+    setMessageDialogOpen(true);
+  };
+
+  // Send message to admin
+  const handleSendMessageToAdmin = async () => {
+    if (!user?.email || !selectedCar) {
+      toast.error('Нэвтэрсэн хэрэглэгч олдсонгүй');
+      return;
+    }
+    
+    if (!messageContent.trim()) {
+      toast.error('Мессеж бичнэ үү');
+      return;
+    }
+    
+    try {
+      setSendingMessageCarId(selectedCar.id);
+      const adminEmail = await getAdminEmail();
+      
+      await createMessage({
+        sender_email: user.email,
+        receiver_email: adminEmail,
+        content: messageContent,
+        car_id: selectedCar.id
+      });
+      
+      toast.success('Админ рүү мессеж илгээгдлээ');
+      queryClient.invalidateQueries(['myMessages', user.email]);
+      setSendingMessageCarId(null);
+      setMessageDialogOpen(false);
+      setSelectedCar(null);
+      setMessageContent('');
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast.error('Мессеж илгээхэд алдаа гарлаа: ' + error.message);
+      setSendingMessageCarId(null);
+    }
   };
 
   if (userLoading) {
@@ -190,6 +248,19 @@ export default function Profile() {
                           VIP зар
                         </div>
                       )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleOpenMessageDialog(car);
+                        }}
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        Мессеж
+                      </Button>
                       <Button
                         variant="destructive"
                         size="sm"
@@ -291,6 +362,52 @@ export default function Profile() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Message Dialog */}
+      <Dialog open={messageDialogOpen} onOpenChange={setMessageDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Админ руу мессеж илгээх</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {selectedCar && (
+              <div className="text-sm text-gray-600">
+                <p className="font-semibold mb-1">Зарын мэдээлэл:</p>
+                <p>{selectedCar.title || `${selectedCar.make} ${selectedCar.model}`} ({selectedCar.year})</p>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="message-content">Мессеж *</Label>
+              <Textarea
+                id="message-content"
+                value={messageContent}
+                onChange={(e) => setMessageContent(e.target.value)}
+                placeholder="Мессежээ бичнэ үү..."
+                rows={6}
+                className="resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setMessageDialogOpen(false);
+                setSelectedCar(null);
+                setMessageContent('');
+              }}
+            >
+              Цуцлах
+            </Button>
+            <Button
+              onClick={handleSendMessageToAdmin}
+              disabled={sendingMessageCarId === selectedCar?.id || !messageContent.trim()}
+            >
+              {sendingMessageCarId === selectedCar?.id ? 'Илгээж байна...' : 'Илгээх'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

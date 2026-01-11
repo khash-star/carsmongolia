@@ -1838,6 +1838,19 @@ export default function Admin() {
                             <div>
                               <h3 className="font-semibold text-lg">{car.title}</h3>
                               <p className="text-gray-500 text-sm">{car.make} {car.model} • {car.year}</p>
+                              {(() => {
+                                const carDate = car.updated_at || car.created_at;
+                                if (carDate) {
+                                  const date = new Date(carDate);
+                                  const now = new Date();
+                                  const diffTime = Math.abs(now - date);
+                                  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                                  return (
+                                    <p className="text-gray-400 text-xs mt-1">{diffDays} хоног</p>
+                                  );
+                                }
+                                return null;
+                              })()}
                             </div>
                             <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
                               <Star className="w-3 h-3 mr-1 fill-current" />
