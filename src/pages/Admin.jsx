@@ -201,10 +201,11 @@ export default function Admin() {
   });
 
   // Админ руу ирсэн мессежүүд
+  const adminEmail = 'khashpay@gmail.com';
   const { data: messages = [], isLoading: messagesLoading } = useQuery({
-    queryKey: ['adminMessages', user?.email],
-    queryFn: () => listMessages({ receiver_email: user?.email, orderBy: '-created_date' }),
-    enabled: !!user?.email
+    queryKey: ['adminMessages', adminEmail],
+    queryFn: () => listMessages({ receiver_email: adminEmail, orderBy: '-created_date' }),
+    enabled: true
   });
 
   // Мессеж уншсан гэж тэмдэглэх
@@ -213,7 +214,7 @@ export default function Admin() {
       await markAsRead(messageId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['adminMessages', user?.email]);
+      queryClient.invalidateQueries(['adminMessages', adminEmail]);
     }
   });
 
