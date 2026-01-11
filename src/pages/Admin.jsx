@@ -201,16 +201,17 @@ export default function Admin() {
   });
 
   // Админ руу ирсэн мессежүүд
-  const adminEmail = 'khashpay@gmail.com';
+  // Use user email for Firestore rules compatibility
+  const adminEmail = user?.email || 'khashpay@gmail.com';
   const { data: messages = [], isLoading: messagesLoading } = useQuery({
     queryKey: ['adminMessages', adminEmail],
     queryFn: async () => {
-      console.log('Fetching admin messages for:', adminEmail);
+      console.log('Fetching admin messages for:', adminEmail, 'User email:', user?.email);
       const msgs = await listMessages({ receiver_email: adminEmail, orderBy: '-created_date' });
       console.log('Admin messages found:', msgs.length, msgs);
       return msgs;
     },
-    enabled: true
+    enabled: !!user?.email
   });
 
   // Мессеж уншсан гэж тэмдэглэх

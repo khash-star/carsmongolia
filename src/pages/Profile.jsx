@@ -139,16 +139,19 @@ export default function Profile() {
     try {
       setSendingMessageCarId(selectedCar.id);
       const adminEmail = await getAdminEmail();
+      console.log('Sending message to admin:', { adminEmail, sender_email: user.email, car_id: selectedCar.id });
       
-      await createMessage({
+      const result = await createMessage({
         sender_email: user.email,
         receiver_email: adminEmail,
         content: messageContent,
         car_id: selectedCar.id
       });
       
+      console.log('Message created successfully:', result);
       toast.success('Админ рүү мессеж илгээгдлээ');
       queryClient.invalidateQueries(['myMessages', user.email]);
+      queryClient.invalidateQueries(['adminMessages', adminEmail]);
       setSendingMessageCarId(null);
       setMessageDialogOpen(false);
       setSelectedCar(null);
