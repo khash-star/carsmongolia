@@ -17,6 +17,7 @@ import LikeGate from "./LikeGate";
 import Statistics from "./Statistics";
 import Login from "./Login";
 import ResetPassword from "./ResetPassword";
+import Chat from "./Chat";
 
 import { BrowserRouter as Router, Route, Routes, useLocation, Navigate } from 'react-router-dom';
 
@@ -119,6 +120,13 @@ function PagesContent() {
                 <Route path="/Admin" element={
                     <ProtectedRoute requireAdmin={true}>
                         <Admin />
+                    </ProtectedRoute>
+                } />
+                
+                {/* Chat route */}
+                <Route path="/Chat" element={
+                    <ProtectedRoute requireAdmin={true}>
+                        <Chat />
                     </ProtectedRoute>
                 } />
                 

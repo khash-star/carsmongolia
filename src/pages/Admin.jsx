@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getCurrentUser, setUserRole } from '@/services/auth';
 import { list as listCars, update as updateCar, remove as removeCar } from '@/services/cars';
 import { list as listBusinesses, update as updateBusiness, remove as removeBusiness } from '@/services/businesses';
-import { list as listMessages, markAsRead } from '@/services/messages';
+import { list as listMessages, markAsRead, create as createMessage } from '@/services/messages';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -14,6 +14,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Car, Briefcase, Check, X, Eye, ShieldCheck, Download, Upload, FileJson, Database, TrendingUp, Loader2, FileSpreadsheet, Copy, Link as LinkIcon, Trash2, Edit, Star, ArrowUp, MessageSquare, User } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -44,6 +47,10 @@ export default function Admin() {
   const [deletingBusinessId, setDeletingBusinessId] = useState(null);
   const [vipingCarId, setVipingCarId] = useState(null);
   const [showScrollToTop, setShowScrollToTop] = useState(false);
+  const [replyDialogOpen, setReplyDialogOpen] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [replyContent, setReplyContent] = useState('');
+  const [sendingReplyId, setSendingReplyId] = useState(null);
 
   // Scroll to top button харагдах эсэхийг шалгах
   useEffect(() => {
@@ -214,6 +221,44 @@ export default function Admin() {
     enabled: !!user?.email
   });
 
+  // Messages-ийг sender_email-ээр бүлэглэх (conversation-based)
+  const conversations = React.useMemo(() => {
+    if (!messages.length) return [];
+    
+    const grouped = messages.reduce((acc, message) => {
+      const senderEmail = message.sender_email;
+      if (!acc[senderEmail]) {
+        acc[senderEmail] = {
+          sender_email: senderEmail,
+          messages: [],
+          unreadCount: 0,
+          lastMessage: null,
+          lastMessageTime: null
+        };
+      }
+      acc[senderEmail].messages.push(message);
+      if (!message.is_read) {
+        acc[senderEmail].unreadCount++;
+      }
+      return acc;
+    }, {});
+
+    // Сүүлийн мессежийн дарааллаар эрэмбэлэх
+    return Object.values(grouped).map(conv => {
+      const sortedMessages = conv.messages.sort((a, b) => 
+        new Date(b.created_date) - new Date(a.created_date)
+      );
+      return {
+        ...conv,
+        messages: sortedMessages,
+        lastMessage: sortedMessages[0],
+        lastMessageTime: sortedMessages[0]?.created_date
+      };
+    }).sort((a, b) => 
+      new Date(b.lastMessageTime) - new Date(a.lastMessageTime)
+    );
+  }, [messages]);
+
   // Мессеж уншсан гэж тэмдэглэх
   const markMessageAsReadMutation = useMutation({
     mutationFn: async (messageId) => {
@@ -223,6 +268,41 @@ export default function Admin() {
       queryClient.invalidateQueries(['adminMessages', adminEmail]);
     }
   });
+
+  // Хариу илгээх
+  const handleOpenReplyDialog = (message) => {
+    setSelectedMessage(message);
+    setReplyContent('');
+    setReplyDialogOpen(true);
+  };
+
+  const handleSendReply = async () => {
+    if (!user?.email || !selectedMessage || !replyContent.trim()) {
+      toast.error('Хариу бичнэ үү');
+      return;
+    }
+
+    try {
+      setSendingReplyId(selectedMessage.id);
+      await createMessage({
+        sender_email: user.email,
+        receiver_email: selectedMessage.sender_email,
+        content: replyContent,
+        car_id: selectedMessage.car_id || null
+      });
+      
+      toast.success('Хариу илгээгдлээ');
+      queryClient.invalidateQueries(['adminMessages', adminEmail]);
+      setReplyDialogOpen(false);
+      setSelectedMessage(null);
+      setReplyContent('');
+      setSendingReplyId(null);
+    } catch (error) {
+      console.error('Error sending reply:', error);
+      toast.error('Хариу илгээхэд алдаа гарлаа: ' + error.message);
+      setSendingReplyId(null);
+    }
+  };
 
   // Тогтмол каталогийн линк ачаалах
   const { data: catalogConfig } = useQuery({
@@ -1953,41 +2033,57 @@ export default function Admin() {
                   <Skeleton key={i} className="h-24 rounded-xl" />
                 ))}
               </div>
-            ) : messages.length > 0 ? (
+            ) : conversations.length > 0 ? (
               <div className="space-y-4">
-                {messages.map((message) => (
-                  <Card 
-                    key={message.id} 
-                    className={`border-0 shadow-sm cursor-pointer transition-colors ${!message.is_read ? 'bg-blue-50 hover:bg-blue-100' : 'hover:bg-gray-50'}`}
-                    onClick={() => {
-                      if (!message.is_read) {
-                        markMessageAsReadMutation.mutate(message.id);
-                      }
-                    }}
+                {conversations.map((conv) => (
+                  <Link
+                    key={conv.sender_email}
+                    to={createPageUrl(`Chat?otherUserEmail=${encodeURIComponent(conv.sender_email)}`)}
+                    className="block"
                   >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                            <User className="w-4 h-4 text-gray-600" />
+                    <Card 
+                      className={`border-0 shadow-sm cursor-pointer transition-all hover:shadow-md ${conv.unreadCount > 0 ? 'bg-blue-50' : ''}`}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center text-white font-semibold text-lg flex-shrink-0">
+                              {conv.sender_email[0]?.toUpperCase() || '?'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <h3 className="font-semibold text-gray-900 truncate">
+                                  {conv.sender_email}
+                                </h3>
+                                {conv.unreadCount > 0 && (
+                                  <Badge className="bg-blue-600 flex-shrink-0 ml-2">
+                                    {conv.unreadCount}
+                                  </Badge>
+                                )}
+                              </div>
+                              {conv.lastMessage && (
+                                <>
+                                  <p className="text-sm text-gray-600 truncate mb-1">
+                                    {conv.lastMessage.content}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {new Date(conv.lastMessageTime).toLocaleDateString('mn-MN', {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </p>
+                                </>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-semibold text-sm">{message.sender_email}</p>
-                            <p className="text-xs text-gray-500">{new Date(message.created_date).toLocaleDateString('mn-MN')}</p>
-                            {message.car_id && (
-                              <Link to={createPageUrl(`CarDetails?id=${message.car_id}`)} className="text-xs text-blue-600 hover:underline">
-                                Зарыг харах →
-                              </Link>
-                            )}
-                          </div>
+                          <MessageSquare className="w-5 h-5 text-gray-400 flex-shrink-0 ml-2" />
                         </div>
-                        {!message.is_read && (
-                          <Badge className="bg-blue-600">Шинэ</Badge>
-                        )}
-                      </div>
-                      <p className="text-gray-700 whitespace-pre-wrap">{message.content}</p>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
+                  </Link>
                 ))}
               </div>
             ) : (
@@ -2438,6 +2534,52 @@ export default function Admin() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Reply Dialog */}
+        <Dialog open={replyDialogOpen} onOpenChange={setReplyDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Хариу илгээх</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              {selectedMessage && (
+                <div className="text-sm text-gray-600">
+                  <p className="font-semibold mb-1">Хүлээн авагч:</p>
+                  <p>{selectedMessage.sender_email}</p>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="reply-content">Хариу *</Label>
+                <Textarea
+                  id="reply-content"
+                  value={replyContent}
+                  onChange={(e) => setReplyContent(e.target.value)}
+                  placeholder="Хариу бичнэ үү..."
+                  rows={6}
+                  className="resize-none"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setReplyDialogOpen(false);
+                  setSelectedMessage(null);
+                  setReplyContent('');
+                }}
+              >
+                Цуцлах
+              </Button>
+              <Button
+                onClick={handleSendReply}
+                disabled={sendingReplyId === selectedMessage?.id || !replyContent.trim()}
+              >
+                {sendingReplyId === selectedMessage?.id ? 'Илгээж байна...' : 'Илгээх'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
