@@ -204,7 +204,12 @@ export default function Admin() {
   const adminEmail = 'khashpay@gmail.com';
   const { data: messages = [], isLoading: messagesLoading } = useQuery({
     queryKey: ['adminMessages', adminEmail],
-    queryFn: () => listMessages({ receiver_email: adminEmail, orderBy: '-created_date' }),
+    queryFn: async () => {
+      console.log('Fetching admin messages for:', adminEmail);
+      const msgs = await listMessages({ receiver_email: adminEmail, orderBy: '-created_date' });
+      console.log('Admin messages found:', msgs.length, msgs);
+      return msgs;
+    },
     enabled: true
   });
 
